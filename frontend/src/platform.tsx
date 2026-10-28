@@ -109,7 +109,6 @@ function App() {
         <Dialog open={reissueOpen} onClose={() => setReissueOpen(false)} title="Reissue owner invitation" description="The current invitation will stop working. A new 48-hour link will be sent to the same email address."><div className="actions"><Button variant="secondary" onClick={() => setReissueOpen(false)}>Cancel</Button><Button loading={busy} onClick={() => { setReissueOpen(false); void perform(async () => { await mutateJson(`/api/v1/platform/tenants/${tenantId}/owner-invitations/reissue`, {}, true); setNotice('The earlier invitation was revoked and a replacement was requested.'); }); }}>Revoke and reissue</Button></div></Dialog>
       </section>
     </div>
-    <Button variant="tertiary" loading={busy} onClick={() => void perform(async () => { await mutateJson('/api/v1/platform/auth/logout', {}, true); setSecret(''); setCodes([]); setProof(null); setDomains([]); setTenantId(''); setReissueOpen(false); setState('login'); })}>Sign out</Button>
   </div>} />;
 
   return <AuthShell area="Platform owner access" title={state === 'loading' ? 'Checking your session' : state === 'login' ? 'Platform sign in' : 'Verify your identity'} description={state === 'login' ? 'Use the verified staff account attached to an active platform grant.' : state === 'enroll' ? 'Set up an authenticator before platform access is granted.' : 'Complete the security check to continue.'}><div className="auth-management">

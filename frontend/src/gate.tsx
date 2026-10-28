@@ -1,3 +1,4 @@
+import { SignOutButton } from './product/SignOutButton';
 import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import jsQR from 'jsqr';
@@ -95,7 +96,7 @@ function GateApp() {
   const eventAvailable = !active?.event_status || active.event_status === 'published';
 
   return <main className="gate-app">
-    <header className="gate-header"><a href="/workspace.html#check-in" className="wordmark"><span className="wordmark-mark">E</span><span>Gate</span></a><div><StatusMark tone={networkAvailable ? 'success' : 'danger'}>{networkAvailable ? 'Network available' : 'Offline'}</StatusMark><ThemeControl compact /></div></header>
+    <header className="gate-header"><a href="/workspace.html#check-in" className="wordmark"><span className="wordmark-mark">E</span><span>Gate</span></a><div><StatusMark tone={networkAvailable ? 'success' : 'danger'}>{networkAvailable ? 'Network available' : 'Offline'}</StatusMark><ThemeControl compact />{session && <SignOutButton beforeSignOut={() => { scanning.current = false; stream.current?.getTracks().forEach(track => track.stop()); setCredential(''); setRetryCredential(''); setResult(null); setState('ready'); }} />}</div></header>
     {state === 'loading' && <section className="gate-result gate-result--neutral" aria-live="polite"><span className="gate-spinner"/><h1>Checking assignment</h1><p>Confirming this secure session with the server.</p></section>}
     {state === 'unauthorized' && <section className="gate-panel"><div className="gate-hero"><Icon name="shield"/><h1>Gate access required</h1><p>Sign in with an assigned gate-staff account. Event and gate scope are supplied by the server, not this device.</p><a className="product-button" href="/">Sign in</a>{error && <p role="alert" className="request-error">{error}</p>}</div></section>}
     {active && state !== 'loading' && state !== 'unauthorized' && <section className="gate-context"><div><p>{active.event_name}</p><h1>{active.gate_name}</h1></div>{available.length > 1 ? <label><span className="sr-only">Assigned gate</span><select value={assignmentKey} onChange={event => setAssignmentKey(event.target.value)}>{available.map(item => <option key={`${item.event_id}:${item.gate_id}`} value={`${item.event_id}:${item.gate_id}`}>{item.event_name} · {item.gate_name}</option>)}</select></label> : <StatusMark tone="success">Assigned</StatusMark>}</section>}

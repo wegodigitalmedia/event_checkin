@@ -387,3 +387,18 @@ ORIGIN_AUTH_SECRET, verified database TLS and the approved password corpus.
 The API Blueprint now uses Render's assigned origin rather than requiring a
 purchased origin domain. A first administrator still requires the separately
 approved one-time interactive bootstrap; this code change does not execute it.
+
+### Dashboard sign-out correction (2026-10-28)
+
+Platform console now exposes sign-out globally instead of only in legacy
+provisioning content. Gate dashboard now exposes sign-out and stops the camera
+before logout. Organizer dashboard uses the same control with visible retryable
+failure feedback. Mobile shell CSS no longer hides sign-out utilities. Controls
+POST to the existing role-appropriate CSRF-protected logout endpoint, clear the
+local session hint, and return to sign-in only after successful revocation.
+
+Validation: seven Playwright tests passed across mobile/desktop platform,
+organizer and gate dashboards, including CSRF header, correct endpoint, browser
+bounds, and failure retry behavior. ESLint, TypeScript and production Vite build
+passed. All browser requests used local synthetic fixtures; no production
+sessions were revoked during testing.

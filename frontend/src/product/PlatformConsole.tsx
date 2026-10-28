@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { SignOutButton } from './SignOutButton';
 import { AppShell, type NavItem } from './AppShell';
 import { capabilities } from './capabilities';
 import { ButtonLink, CapabilityNotice, ComingSoonState, DataTable, MetricStrip, PageHeader, RestrictedState, SectionHeader, SettingRow, StatusMark, Timeline, UnavailableState } from './components';
@@ -42,5 +43,5 @@ export function PlatformConsole({ provisioning }: { provisioning: ReactNode }) {
   const readiness = useReadiness();
   const valid = nav.some(item=>item.route===route) ? route : 'overview';
   const content: Record<string,ReactNode> = { overview:<Overview readiness={readiness}/>, organizations:<>{provisioning}</>, privacy:<PrivacyNotices/>, domains:<Domains/>, subscriptions:<Subscriptions/>, operations:<Operations readiness={readiness}/>, settings:<Settings/> };
-  return <AppShell product="Event Check-in" context="Platform" route={valid} nav={nav}>{content[valid]}</AppShell>;
+  return <AppShell product="Event Check-in" context="Platform" route={valid} nav={nav} utility={<SignOutButton platform />}>{content[valid]}</AppShell>;
 }

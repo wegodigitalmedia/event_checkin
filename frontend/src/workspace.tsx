@@ -1,3 +1,4 @@
+import { SignOutButton } from './product/SignOutButton';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppShell, type NavItem } from './product/AppShell';
@@ -122,10 +123,10 @@ function Settings() {
 const screens: Record<string, () => ReactNode> = { dashboard: Dashboard, events: Events, participants: Attendees, tickets: Tickets, 'check-in': CheckIn, 'gate-staff': Team, communications: Communications, reports: Reports, branding: Branding, billing: Billing, settings: Settings };
 
 type Session = { email: string; role: string; tenant_id: string };
-function OrganizerShell({ session, route, Screen, signOut }: { session: Session; route: string; Screen: () => ReactNode; signOut: () => Promise<void> }) {
+function OrganizerShell({ session, route, Screen }: { session: Session; route: string; Screen: () => ReactNode }) {
   const { selectedEvent, loading } = useEventWorkspace();
   const detail = loading ? 'Loading events' : selectedEvent ? <><strong>{selectedEvent.name}</strong><span>{selectedEvent.status}</span></> : 'No events yet';
-  return <AppShell product="Event Check-in" context={session.email} workspaceDetail={detail} route={screens[route] ? route : 'dashboard'} nav={nav} utility={<button className="product-button product-button--secondary" onClick={() => void signOut()}>Sign out</button>}><Screen /></AppShell>;
+  return <AppShell product="Event Check-in" context={session.email} workspaceDetail={detail} route={screens[route] ? route : 'dashboard'} nav={nav} utility={<SignOutButton />}><Screen /></AppShell>;
 }
 
 function Workspace() {
@@ -136,10 +137,9 @@ function Workspace() {
     setSession(value);
     setState(['tenant_owner', 'tenant_admin', 'organizer', 'manager'].includes(value.role) ? 'ready' : 'denied');
   }).catch(() => setState('denied')); }, []);
-  async function signOut() { await mutateJson('/api/v1/auth/logout', {}); location.href = '/'; }
   if (state === 'loading') return <main className="session-gate" role="status">Checking organizer session…</main>;
   if (state === 'denied') return <main className="session-gate"><h1>Organizer access required</h1><p>Sign in with an authorized organizer account. Gate staff use the assigned scanner workspace.</p><a className="product-button" href={session?.role?.startsWith('gate_') ? '/gate.html' : '/'}>{session?.role?.startsWith('gate_') ? 'Open scanner' : 'Sign in'}</a></main>;
-  return <EventWorkspaceProvider><OrganizerShell session={session!} route={route} Screen={Screen} signOut={signOut} /></EventWorkspaceProvider>;
+  return <EventWorkspaceProvider><OrganizerShell session={session!} route={route} Screen={Screen} /></EventWorkspaceProvider>;
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><Workspace /></StrictMode>);
