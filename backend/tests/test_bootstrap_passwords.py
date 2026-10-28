@@ -4,8 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.auth import password_screening as bootstrap_passwords
 from app.auth.corpus import CorpusUnavailable
-from app.tenancy import bootstrap, bootstrap_passwords
+from app.tenancy import bootstrap
 
 
 @pytest.mark.parametrize(

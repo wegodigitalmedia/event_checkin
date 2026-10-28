@@ -55,3 +55,27 @@ PostgreSQL integration tests require `TEST_MIGRATION_DATABASE_URL` for an isolat
 - A maintained, versioned compromised-password dataset and production mail provider still need approval. This is an activation gate, not permission to bypass screening or email delivery.
 - MFA recovery after all recovery methods are lost requires a separately reviewed administrative identity-verification runbook. No email-only MFA bypass exists.
 - The browser/device support policy for gate operations remains M4 scope. This milestone does not grant attendee identity display or implement check-in.
+
+## Online credential screening option (2026-10-28)
+
+Set `PASSWORD_SCREENING_MODE=hibp` on the backend to use the same TLS-verified,
+SHA-1-prefix-only HIBP range check as operator bootstrap for new invitation
+passwords and password reset completion. This covers organizer and gate staff
+credentials through their common authentication service. Existing-user invitation
+acceptance verifies the existing password without re-screening it. Ordinary
+platform/staff/gate sign-in, MFA, session validation, QR redemption, and scanning
+never call HIBP. Offline screening remains the default; invalid mode values fail
+settings validation. HIBP network errors or invalid responses fail closed with
+`PASSWORD_SCREENING_UNAVAILABLE` (503); token consumption and credential writes
+remain transactional and do not commit after a failed check. No schema changes.
+
+Render: set `PASSWORD_SCREENING_MODE=hibp` and redeploy code containing this change.
+No Vercel variables, corpus mount, or HIBP API key is required for this mode.
+Allow outbound HTTPS to `api.pwnedpasswords.com`. The existing bootstrap CLI retains
+its independent explicit `--password-check hibp` switch. No account passwords,
+full hashes, range responses, or authentication tokens are logged by the checker.
+
+Validation: 36 authentication and screening tests passed locally, including real
+PostgreSQL invitation, reset replay, and gate access tests; simulated HIBP outage
+left invitation acceptance retryable. Ruff and strict mypy (66 modules) passed.
+No production database access or deployment performed during validation.

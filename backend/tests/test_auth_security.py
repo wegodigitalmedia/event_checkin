@@ -114,3 +114,30 @@ def test_unconfigured_delivery_fails_before_account_lookup() -> None:
     for address in ("known@example.test", "unknown@example.test"):
         with pytest.raises(DeliveryUnavailable):
             service.request_reset("tenant.example.test", address, "127.0.0.1")
+
+
+def test_password_screening_mode_explicit_and_fail_closed(monkeypatch) -> None:
+    from unittest.mock import MagicMock
+
+    from pydantic import ValidationError
+
+    settings = Settings(
+        app_env="test", database_url="postgresql+psycopg://runtime:local@localhost/test"
+    )
+    offline = MagicMock(spec=CompromisedPasswordCorpus)
+    online = MagicMock(side_effect=CorpusUnavailable("Unavailable"))
+    monkeypatch.setattr("app.auth.service.require_hibp_acceptable", online)
+    service = AuthService(create_engine("sqlite://"), settings, offline, DisabledEmailDelivery())
+    service._screen_new_password("synthetic-password")
+    offline.require_acceptable.assert_called_once_with("synthetic-password")
+    online.assert_not_called()
+    settings.password_screening_mode = "hibp"
+    with pytest.raises(CorpusUnavailable):
+        service._screen_new_password("synthetic-password")
+    assert offline.require_acceptable.call_count == 1
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env="test",
+            database_url="postgresql+psycopg://runtime:local@localhost/test",
+            password_screening_mode="disabled",
+        )

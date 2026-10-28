@@ -22,7 +22,7 @@ from sqlalchemy.exc import DBAPIError, ProgrammingError
 from test_tenant_postgres import _migrate
 
 from app.api.operations import gate_router
-from app.auth.corpus import CompromisedPasswordCorpus
+from app.auth.corpus import CompromisedPasswordCorpus, CorpusUnavailable
 from app.auth.email import DisabledEmailDelivery
 from app.auth.security import hash_password, new_token, token_digest, totp_code
 from app.auth.service import AuthDenied, AuthService
@@ -458,11 +458,16 @@ def _restore_scanner(db: AuthDatabase) -> None:
         )
 
 
+@pytest.mark.parametrize("screening_mode", ["hibp"])
 def test_accepted_gate_invitation_opens_real_gate_session(
-    auth_db: AuthDatabase, tmp_path: Path
+    auth_db: AuthDatabase, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, screening_mode: str
 ) -> None:
     email = CapturedEmail()
-    auth = AuthService(auth_db.identity, auth_db.settings, _corpus(tmp_path), email)
+    corpus = _corpus(tmp_path)
+    settings = auth_db.settings.model_copy(update={"password_screening_mode": screening_mode})
+    if screening_mode == "hibp":
+        monkeypatch.setattr("app.auth.service.require_hibp_acceptable", corpus.require_acceptable)
+    auth = AuthService(auth_db.identity, settings, corpus, email)
     admin_session = _admin_session(auth_db)
     event_id, gate_id = uuid4(), uuid4()
     now = datetime.now(UTC)
@@ -619,11 +624,16 @@ def test_gate_staff_directory_reassignment_and_revocation(
         _restore_scanner(auth_db)
 
 
+@pytest.mark.parametrize("screening_mode", ["hibp"])
 def test_invitation_and_password_reset_replay(
-    auth_db: AuthDatabase, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    auth_db: AuthDatabase, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, screening_mode: str
 ) -> None:
     email = CapturedEmail()
-    auth = AuthService(auth_db.identity, auth_db.settings, _corpus(tmp_path), email)
+    corpus = _corpus(tmp_path)
+    settings = auth_db.settings.model_copy(update={"password_screening_mode": screening_mode})
+    if screening_mode == "hibp":
+        monkeypatch.setattr("app.auth.service.require_hibp_acceptable", corpus.require_acceptable)
+    auth = AuthService(auth_db.identity, settings, corpus, email)
     session = _admin_session(auth_db)
     try:
         event, gate = uuid4(), uuid4()
@@ -674,6 +684,17 @@ def test_invitation_and_password_reset_replay(
                             "actor": auth_db.user,
                         },
                     )
+        with monkeypatch.context() as patch:
+
+            def unavailable(password: str) -> None:
+                raise CorpusUnavailable("Synthetic provider outage")
+
+            patch.setattr("app.auth.service.require_hibp_acceptable", unavailable)
+            with pytest.raises(CorpusUnavailable):
+                auth.accept_invitation(
+                    "auth-a.example.test", invitation, "safe unlisted invitation password"
+                )
+        # Same token remains usable after the failed screening transaction.
         state, invited_session = auth.accept_invitation(
             "auth-a.example.test", invitation, "safe unlisted invitation password"
         )

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auth.address import single_email_address
 from app.auth.corpus import CompromisedPasswordCorpus
 from app.auth.email import DeliveryUnavailable, DisabledEmailDelivery, EmailDelivery
+from app.auth.password_screening import require_hibp_acceptable
 from app.auth.policy import Assignment, permits, requires_mfa, session_lifetime
 from app.auth.security import (
     accepted_totp_step,
@@ -69,6 +70,13 @@ class AuthService:
         email: EmailDelivery,
     ) -> None:
         self.engine, self.settings, self.corpus, self.email = engine, settings, corpus, email
+
+    def _screen_new_password(self, password: str) -> None:
+        # Only invitation credential creation and reset completion call this.
+        if self.settings.password_screening_mode == "hibp":
+            require_hibp_acceptable(password)
+        else:
+            self.corpus.require_acceptable(password)
 
     def _tenant(self, db: Session, hostname: str) -> UUID:
         if hostname.startswith("shared-tenant-") and self.settings.platform_host:
@@ -767,7 +775,7 @@ class AuthService:
                 raise AuthDenied("Invitation expired")
             user = db.scalar(select(User).where(User.email == invite.email))
             if user is None:
-                self.corpus.require_acceptable(password)
+                self._screen_new_password(password)
                 hashed = hash_password(password)
                 user = User(email=invite.email, display_name=invite.email, status="active")
                 db.add(user)
@@ -883,7 +891,7 @@ class AuthService:
             credential = db.get(PasswordCredential, row.user_id)
             if credential is None:
                 raise AuthDenied("Reset link expired")
-            self.corpus.require_acceptable(password)
+            self._screen_new_password(password)
             hashed = hash_password(password)
             credential.password_hash, credential.changed_at = hashed, utcnow()
             db.execute(

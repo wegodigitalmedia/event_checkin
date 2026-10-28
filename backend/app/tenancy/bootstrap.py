@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.auth.address import single_email_address
 from app.auth.corpus import CompromisedPasswordCorpus, CorpusUnavailable
+from app.auth.password_screening import require_hibp_acceptable
 from app.auth.security import hash_password
 from app.core.config import get_settings
-from app.tenancy.bootstrap_passwords import require_hibp_acceptable
 
 
 def main() -> None:

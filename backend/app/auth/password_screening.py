@@ -1,4 +1,4 @@
-"""Explicit online password screening for the operator bootstrap only."""
+"""Explicit online screening for password creation, never sign-in."""
 
 import hashlib
 import http.client
@@ -19,25 +19,31 @@ def require_hibp_acceptable(password: str) -> None:
         connection.request(
             "GET",
             "/range/" + digest[:5],
-            headers={"Add-Padding": "true", "User-Agent": "EventCheckin-Bootstrap"},
+            headers={"Add-Padding": "true", "User-Agent": "EventCheckin-PasswordScreening"},
         )
         response = connection.getresponse()
         if response.status != 200:
-            raise CorpusUnavailable("Online password screening unavailable; bootstrap stopped")
+            raise CorpusUnavailable(
+                "Online password screening unavailable; credential change stopped"
+            )
         content = response.read(2_000_001)
         if not content or len(content) > 2_000_000:
-            raise CorpusUnavailable("Invalid password screening response; bootstrap stopped")
+            raise CorpusUnavailable(
+                "Invalid password screening response; credential change stopped"
+            )
         lines = content.decode("ascii").splitlines()
         compromised = False
         for line in lines:
             match = re.fullmatch(r"([0-9A-F]{35}):([0-9]+)", line)
             if match is None:
-                raise CorpusUnavailable("Invalid password screening response; bootstrap stopped")
+                raise CorpusUnavailable(
+                    "Invalid password screening response; credential change stopped"
+                )
             if match[1] == digest[5:] and int(match[2]) > 0:
                 compromised = True
     except (OSError, http.client.HTTPException, UnicodeError, ValueError):
         raise CorpusUnavailable(
-            "Online password screening unavailable; bootstrap stopped"
+            "Online password screening unavailable; credential change stopped"
         ) from None
     finally:
         connection.close()

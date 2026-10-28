@@ -23,7 +23,9 @@ and compares the remaining hash locally. It never sends the password or full has
 There are no redirects, fallback to unchecked passwords, or database connections
 before screening succeeds. Timeout, non-200, oversized, and malformed responses
 stop bootstrap. Network egress to that HTTPS endpoint is required. Offline screening
-remains the default; API invitation and password-reset screening remain unchanged.
+remains the default. API invitation and password-reset creation can independently
+use `PASSWORD_SCREENING_MODE=hibp`; see M1-03_AUTH_CONTRACTS.md. Ordinary
+sign-in and MFA do not use external screening.
 
 For an explicitly approved mailbox-verification exception, replace
 `--email-verification-ref` with `--waive-mailbox-verification`. The options are

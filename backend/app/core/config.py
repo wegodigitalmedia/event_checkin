@@ -1,6 +1,7 @@
 from enum import StrEnum
 from functools import lru_cache
 from ipaddress import ip_address
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
     identity_database_url: SecretStr | None = None
     auth_encryption_key: SecretStr | None = None
     auth_key_id: str = "v1"
+    password_screening_mode: Literal["offline", "hibp"] = "offline"
     compromised_password_corpus: str | None = None
     compromised_password_sha256: str | None = None
     email_smtp_host: str | None = None
