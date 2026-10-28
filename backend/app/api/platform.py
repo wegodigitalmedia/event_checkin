@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.auth import clear_cookie, csrf, csrf_token, set_cookie
 from app.auth.address import single_email_address
 from app.auth.email import DeliveryUnavailable
+from app.auth.policy import SESSION_MAX_AGE
 from app.auth.service import AuthDenied
 from app.tenancy.domains import DomainDenied, DomainService
 from app.tenancy.platform_auth import PlatformAuth
@@ -229,7 +230,7 @@ def verify(body: VerifyBody, request: Request, response: Response, auth: Auth) -
     except AuthDenied as exc:
         raise fail(exc) from exc
     clear_cookie(response, PLATFORM_CHALLENGE_COOKIE)
-    set_cookie(response, PLATFORM_SESSION_COOKIE, token, 8 * 60 * 60)
+    set_cookie(response, PLATFORM_SESSION_COOKIE, token, SESSION_MAX_AGE)
     return {"state": "session", "recovery_codes": codes}
 
 

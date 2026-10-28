@@ -68,8 +68,10 @@ def validate_windows(
     if (checkin_open is None) != (checkin_close is None):
         raise EventInvalid("Set both check-in dates")
     if checkin_open is not None and checkin_close is not None:
-        if not (starts <= utc(checkin_open) < utc(checkin_close) <= ends):
-            raise EventInvalid("Check-in must be inside the event window")
+        if not (starts - timedelta(hours=4) <= utc(checkin_open) < utc(checkin_close) <= ends):
+            raise EventInvalid(
+                "Check-in may open up to four hours before start and must close by event end"
+            )
 
 
 def validate_form(schema: dict[str, object]) -> dict[str, object]:

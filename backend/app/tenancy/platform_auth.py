@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from app.auth.policy import SESSION_DURATION
 from app.auth.security import (
     accepted_totp_step,
     decrypt_totp,
@@ -223,8 +224,8 @@ class PlatformAuth:
                     user_id=challenge.user_id,
                     token_digest=token_digest(token),
                     last_seen_at=now,
-                    idle_expires_at=now + timedelta(minutes=15),
-                    absolute_expires_at=now + timedelta(hours=8),
+                    idle_expires_at=now + SESSION_DURATION,
+                    absolute_expires_at=now + SESSION_DURATION,
                     mfa_verified_at=now,
                 )
             )
@@ -253,7 +254,7 @@ class PlatformAuth:
             if user is None or user.status != "active" or not self._granted(db, user.id, operation):
                 raise AuthDenied("Unauthorized")
             row.last_seen_at = now
-            row.idle_expires_at = min(now + timedelta(minutes=15), row.absolute_expires_at)
+            row.idle_expires_at = min(now + SESSION_DURATION, row.absolute_expires_at)
             db.expunge(user)
             return user
 

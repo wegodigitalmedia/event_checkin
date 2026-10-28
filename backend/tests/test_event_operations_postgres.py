@@ -323,8 +323,8 @@ def test_same_credential_at_five_gates_is_accepted_once(pg: Harness) -> None:
         session,
         slug="five-gate-rehearsal",
         name="Five gate rehearsal",
-        starts_at=now - timedelta(minutes=10),
-        ends_at=now + timedelta(hours=2),
+        starts_at=now + timedelta(hours=3, minutes=59),
+        ends_at=now + timedelta(hours=6),
         timezone="Africa/Lagos",
     )
     configured = events.edit(
@@ -339,7 +339,7 @@ def test_same_credential_at_five_gates_is_accepted_once(pg: Harness) -> None:
         timezone=draft.timezone,
         registration_opens_at=now - timedelta(hours=1),
         registration_closes_at=now + timedelta(hours=1),
-        checkin_opens_at=draft.starts_at,
+        checkin_opens_at=draft.starts_at - timedelta(hours=4),
         checkin_closes_at=draft.ends_at,
     )
     gates = [

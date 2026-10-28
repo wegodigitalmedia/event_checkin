@@ -11,6 +11,7 @@ from pydantic import AfterValidator, BaseModel, Field
 from app.auth.address import single_email_address
 from app.auth.corpus import CorpusUnavailable
 from app.auth.email import DeliveryUnavailable
+from app.auth.policy import SESSION_MAX_AGE
 from app.auth.service import AuthDenied, AuthService, Forbidden
 from app.tenancy.shared_host import (
     CONTEXT_COOKIE,
@@ -168,7 +169,7 @@ def login(
     clear_cookie(response, SESSION_COOKIE)
     clear_cookie(response, CHALLENGE_COOKIE)
     if state == "session":
-        set_cookie(response, SESSION_COOKIE, token, 12 * 60 * 60)
+        set_cookie(response, SESSION_COOKIE, token, SESSION_MAX_AGE)
     else:
         set_cookie(response, CHALLENGE_COOKIE, token, 5 * 60)
     return {"state": state}
@@ -244,7 +245,7 @@ def mfa_verify(
     except AuthDenied as exc:
         raise handle_error(exc) from exc
     clear_cookie(response, CHALLENGE_COOKIE)
-    set_cookie(response, SESSION_COOKIE, token, 8 * 60 * 60)
+    set_cookie(response, SESSION_COOKIE, token, SESSION_MAX_AGE)
     return {"state": "session", "recovery_codes": codes}
 
 
@@ -336,7 +337,7 @@ def accept_invite(
             response, CONTEXT_COOKIE, sign_context(auth.settings, body.tenant_id), CONTEXT_LIFETIME
         )
     if state == "session":
-        set_cookie(response, SESSION_COOKIE, token, 12 * 60 * 60)
+        set_cookie(response, SESSION_COOKIE, token, SESSION_MAX_AGE)
     else:
         set_cookie(response, CHALLENGE_COOKIE, token, 5 * 60)
     return {"state": state}

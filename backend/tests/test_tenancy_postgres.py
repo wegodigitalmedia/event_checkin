@@ -22,7 +22,7 @@ from test_tenant_postgres import _migrate
 
 from app.auth.corpus import CompromisedPasswordCorpus
 from app.auth.email import DeliveryUnavailable
-from app.auth.security import hash_password, totp_code
+from app.auth.security import hash_password, token_digest, totp_code
 from app.auth.service import AuthDenied, AuthService
 from app.core.config import Settings
 from app.db.models import TenantDomain
@@ -257,6 +257,16 @@ def test_platform_mfa_session_and_grant_revocation(pg: Harness) -> None:
     )
     assert len(recovery_codes) == 10
     assert pg.platform_auth.current(session).id == pg.actor
+    with pg.owner.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT absolute_expires_at-created_at FROM platform_auth_sessions "
+                "WHERE token_digest=:digest"
+            ),
+            {"digest": token_digest(session)},
+        ).one()
+        assert abs(row[0] - timedelta(hours=48)) < timedelta(seconds=2)
+
     with pytest.raises(AuthDenied):
         pg.platform_auth.current(challenge)
     with pytest.raises(AuthDenied):

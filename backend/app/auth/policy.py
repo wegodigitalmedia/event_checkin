@@ -54,14 +54,14 @@ def requires_mfa(role: str) -> bool:
     return bool(permissions_for(role) - SCANNER)
 
 
+SESSION_MAX_AGE = 48 * 60 * 60
+SESSION_DURATION = timedelta(seconds=SESSION_MAX_AGE)
+
+
 def session_lifetime(role: str) -> tuple[timedelta, timedelta]:
-    if role in {"tenant_owner", "tenant_admin"}:
-        return timedelta(minutes=15), timedelta(hours=8)
-    if role in {"organizer", "manager", "gate_supervisor"}:
-        return timedelta(minutes=30), timedelta(hours=8)
-    if role in {"gate_scanner", "gate_staff"}:
-        return timedelta(minutes=30), timedelta(hours=12)
-    raise ValueError("Unknown role")
+    if role not in ROLE_PERMISSIONS:
+        raise ValueError("Unknown role")
+    return SESSION_DURATION, SESSION_DURATION
 
 
 def permits(

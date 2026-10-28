@@ -97,8 +97,8 @@ def test_role_matrix_and_assignment_scope() -> None:
     assert not permits("gate_scanner", "attendee.export", [assignment], now, event, gate)
     assert not permits("organizer", "billing.manage", [assignment], now, event)
     assert not permits("gate_supervisor", "report.view", [assignment], now, event, gate)
-    assert session_lifetime("tenant_admin") == (timedelta(minutes=15), timedelta(hours=8))
-    assert session_lifetime("gate_scanner") == (timedelta(minutes=30), timedelta(hours=12))
+    assert session_lifetime("tenant_admin") == (timedelta(hours=48), timedelta(hours=48))
+    assert session_lifetime("gate_scanner") == (timedelta(hours=48), timedelta(hours=48))
 
 
 def test_unconfigured_delivery_fails_before_account_lookup() -> None:

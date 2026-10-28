@@ -12,6 +12,7 @@ from app.api.auth import CHALLENGE_COOKIE, SESSION_COOKIE, clear_cookie, csrf, s
 from app.api.platform import PLATFORM_CHALLENGE_COOKIE, PLATFORM_SESSION_COOKIE
 from app.auth.address import single_email_address
 from app.auth.email import DeliveryUnavailable
+from app.auth.policy import SESSION_MAX_AGE
 from app.auth.security import verify_password
 from app.auth.service import AuthDenied, AuthService, utcnow
 from app.db.models import PasswordCredential, User
@@ -178,7 +179,7 @@ def login(
             response,
             PLATFORM_CHALLENGE_COOKIE if state != "session" else PLATFORM_SESSION_COOKIE,
             token,
-            5 * 60 if state != "session" else 8 * 60 * 60,
+            5 * 60 if state != "session" else SESSION_MAX_AGE,
         )
         return {"state": state, "destination": "platform"}
     tenant_id = UUID(chosen)
@@ -195,7 +196,7 @@ def login(
         response,
         SESSION_COOKIE if state == "session" else CHALLENGE_COOKIE,
         token,
-        12 * 60 * 60 if state == "session" else 5 * 60,
+        SESSION_MAX_AGE if state == "session" else 5 * 60,
     )
     return {
         "state": state,

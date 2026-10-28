@@ -379,6 +379,16 @@ def test_session_expiry(auth_db: AuthDatabase) -> None:
     _, token = auth.login(
         "auth-a.example.test", "staff@example.test", "correct horse battery staple", "127.0.0.6"
     )
+    with auth_db.owner.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT idle_expires_at-created_at, absolute_expires_at-created_at "
+                "FROM auth_sessions WHERE token_digest=:digest"
+            ),
+            {"digest": token_digest(token)},
+        ).one()
+        assert abs(row[0] - timedelta(hours=48)) < timedelta(seconds=2)
+        assert abs(row[1] - timedelta(hours=48)) < timedelta(seconds=2)
     with auth_db.owner.begin() as conn:
         conn.execute(
             text("UPDATE auth_sessions SET idle_expires_at=:time WHERE token_digest=:digest"),
@@ -394,7 +404,7 @@ def test_session_expiry(auth_db: AuthDatabase) -> None:
     )
     with auth_db.owner.begin() as conn:
         conn.execute(
-            text("""UPDATE auth_sessions SET created_at=now()-interval '13 hours',
+            text("""UPDATE auth_sessions SET created_at=now()-interval '49 hours',
               absolute_expires_at=now()+interval '1 hour',
               idle_expires_at=now()+interval '1 hour'
               WHERE token_digest=:digest"""),

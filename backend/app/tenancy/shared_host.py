@@ -10,10 +10,11 @@ import hmac
 import time
 from uuid import UUID
 
+from app.auth.policy import SESSION_MAX_AGE
 from app.core.config import Settings
 
 CONTEXT_COOKIE = "__Host-ecs_tenant_context"
-CONTEXT_LIFETIME = 8 * 60 * 60
+CONTEXT_LIFETIME = SESSION_MAX_AGE
 
 
 def shared_host_tenant(tenant_id: UUID) -> str:

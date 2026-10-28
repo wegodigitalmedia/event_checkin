@@ -102,8 +102,37 @@ def test_explicit_offsets_utc_and_dst_window() -> None:
     with pytest.raises(EventInvalid):
         validate_windows(first, second, first, second + timedelta(hours=1), first, second)
     with pytest.raises(EventInvalid):
-        validate_windows(first, second, None, None, first - timedelta(minutes=1), second)
+        validate_windows(first, second, None, None, first - timedelta(hours=4, seconds=1), second)
     with pytest.raises(EventInvalid):
         validate_windows(
             datetime.now(UTC), datetime.now(UTC) - timedelta(hours=1), None, None, None, None
+        )
+
+
+@pytest.mark.parametrize("hours", [0, 2, 4])
+def test_checkin_can_open_before_event(hours: int) -> None:
+    start = datetime(2026, 11, 1, 12, tzinfo=UTC)
+    validate_windows(
+        start,
+        start + timedelta(hours=3),
+        None,
+        None,
+        start - timedelta(hours=hours),
+        start + timedelta(hours=3),
+    )
+
+
+@pytest.mark.parametrize(
+    "opening,closing",
+    [
+        (timedelta(hours=-4, seconds=-1), timedelta(hours=1)),
+        (timedelta(hours=-4), timedelta(hours=3, seconds=1)),
+        (timedelta(hours=1), timedelta(hours=1)),
+    ],
+)
+def test_checkin_window_boundaries_remain_enforced(opening, closing) -> None:
+    start = datetime(2026, 11, 1, 12, tzinfo=UTC)
+    with pytest.raises(EventInvalid):
+        validate_windows(
+            start, start + timedelta(hours=3), None, None, start + opening, start + closing
         )

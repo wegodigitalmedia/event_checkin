@@ -79,3 +79,15 @@ Validation: 36 authentication and screening tests passed locally, including real
 PostgreSQL invitation, reset replay, and gate access tests; simulated HIBP outage
 left invitation acceptance retryable. Ruff and strict mypy (66 modules) passed.
 No production database access or deployment performed during validation.
+
+## Event-day session policy update (2026-10-28)
+
+All platform administrators, tenant owners/admins, organizers, managers, gate
+supervisors and gate scanners now receive 48-hour sessions. Both idle expiry and
+absolute expiry start at 48 hours; activity cannot extend the absolute lifetime.
+Browser session cookies and signed shared-host tenant-context cookies match that
+lifetime. Existing database sessions and context cookies are not extended: sign
+in again after deployment. Five-minute MFA challenges, secure host-bound cookies,
+CSRF, account/grant/membership checks, assignment expiry, and revocation remain
+enforced. Logout still revokes access immediately. This supersedes earlier
+15/30-minute idle and 8/12-hour maximum session durations in this document.

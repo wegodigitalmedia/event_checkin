@@ -140,3 +140,21 @@ volume thresholds must come from the five-gate venue rehearsal.
 - Password corpus source/version and secret-file delivery.
 - Event schedule, gates, privacy notice text/basis/approval reference, event-day
   support roster and connectivity fallback.
+
+### Early check-in and longer staff sessions (2026-10-28)
+
+Event configuration now accepts check-in opening up to four hours before event
+start, with opening strictly before closing and closing no later than event end.
+Existing events retain their saved check-in window: edit the event schedule to
+choose the earlier opening. Gate assignments must also be valid at that time.
+All staff, including platform administrators, now have a 48-hour absolute session
+lifetime; sign in again after deployment for the new expiry. No migrations.
+
+Participant imports require a running dispatcher and Celery worker connected to
+the same Redis broker, plus restricted dispatcher/jobs/runtime PostgreSQL roles.
+A live Render worker alone does not prove Redis consumption or database access.
+Inspect worker logs and existing import progress rather than submitting duplicate
+imports. QR issuance/delivery additionally requires ticket signing configuration
+on the API and worker, enabled issuance, Brevo delivery configuration, and provider
+IP authorization. In import-only mode, issue and send tickets explicitly after
+import completes; successful import does not automatically send QR tickets.
