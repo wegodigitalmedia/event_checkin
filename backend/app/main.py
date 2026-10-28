@@ -200,6 +200,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.state.ticket_service = None
     app.state.event_operations_service = None
     app.state.database_engine = database_engine
+    app.state.platform_control_engine = platform_engine
     app.state.email_delivery = DisabledEmailDelivery()
     branding_storage: BrandingStorage = UnavailableBrandingStorage()
     if identity_engine is not None:

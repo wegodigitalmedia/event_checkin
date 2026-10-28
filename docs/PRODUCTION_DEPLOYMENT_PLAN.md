@@ -7,7 +7,7 @@
 ## Production topology
 
 ```text
-Browser + custom/wildcard HTTPS domains
+Browser + assigned Vercel HTTPS host (custom/wildcard domains optional)
   -> Vercel static Vite application
   -> same-origin Vercel Functions (/api/* and /ready)
        strict header allowlist + origin-auth secret + public Host/client IP
@@ -82,9 +82,10 @@ disabled. Approve region, plan, domains, and cost before creating resources.
    Vercel. Set `RENDER_API_ORIGIN` and `ORIGIN_AUTH_SECRET` as encrypted
    server-side values. Verify that neither appears in browser assets or source
    maps. Build output is `dist`.
-8. **Configure HTTPS, domains, cookies and CORS.** Attach the platform host and
-   approved tenant/wildcard domains to Vercel. Attach a separate origin domain
-   to Render and disable its `onrender.com` subdomain. The public host reaches
+8. **Configure HTTPS, domains, cookies and CORS.** Use the assigned Vercel platform hostname and Render `onrender.com` origin
+   in shared-host mode. Leave `FALLBACK_DOMAIN_SUFFIX` unset; custom/wildcard
+   tenant domains require a separately approved owned zone. Custom origin
+   domains and disabling the assigned Render hostname are optional later steps. The public host reaches
    the backend only through the same-origin Vercel proxy, so no cross-origin
    browser CORS allowance is required. Confirm Secure, HttpOnly, host-only,
    SameSite=Strict cookies and exact Origin/Host enforcement.

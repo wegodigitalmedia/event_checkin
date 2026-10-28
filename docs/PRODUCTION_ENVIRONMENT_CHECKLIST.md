@@ -58,7 +58,9 @@ repository `.env` file. Start from `.env.production.example` and
       catch-all Function.
 - [ ] `RENDER_API_ORIGIN` is HTTPS and points to the gated Render origin.
 - [ ] `ORIGIN_AUTH_SECRET` is encrypted and not exposed as a `VITE_*` variable.
-- [ ] Platform and approved tenant/wildcard domains are attached with valid TLS.
+- [ ] Assigned Vercel and Render hosts serve valid TLS. Shared-host mode leaves
+  FALLBACK_DOMAIN_SUFFIX unset; custom/wildcard tenant domains are optional and
+  require an approved owned zone before DNS provisioning can be enabled.
 - [ ] CSP, nosniff, no-referrer, permissions and immutable asset headers verified.
 - [ ] SPA routes refresh successfully; API responses and `Set-Cookie` survive
       the same-origin proxy; request bodies above 12 MiB fail closed.

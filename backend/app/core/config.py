@@ -115,8 +115,8 @@ class Settings(BaseSettings):
             if not self.platform_host.endswith("." + self.fallback_domain_suffix):
                 raise ValueError("platform host must be in the platform-owned fallback zone")
         if self.platform_database_url is not None:
-            if not (self.platform_host and self.fallback_domain_suffix):
-                raise ValueError("platform control plane requires host and fallback zone")
+            if not self.platform_host:
+                raise ValueError("platform control plane requires PLATFORM_HOST")
             platform_user = make_url(self.platform_database_url.get_secret_value()).username
             for value in (
                 self.database_url,

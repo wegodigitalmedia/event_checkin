@@ -134,7 +134,8 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setattr(platform_api, "PrivacyNotices", FakeNotices)
     app = FastAPI()
     app.state.platform_auth = FakeAuth()
-    app.state.domain_service = FakeDomains()
+    app.state.platform_control_engine = FakeDomains.control_engine
+    app.state.domain_service = None
     app.state.settings = SimpleNamespace(app_env=Environment.TEST)
 
     @app.middleware("http")
@@ -238,3 +239,21 @@ def test_privacy_routes_enforce_csrf_validation_and_typed_serialization(
     activated = client.post(f"{path}/1/activate", headers=headers, json={"confirmed": True})
     assert activated.status_code == 200
     assert activated.json()["active"] is True
+
+
+def test_dns_provisioning_stays_disabled_without_a_fallback_zone(client: TestClient) -> None:
+    token = authorize(client)
+    response = client.post(
+        "/api/v1/platform/tenants", json={"name": "Shared organization", "slug": "shared"},
+        headers={"x-csrf-token": token, "origin": "https://platform.example.test"},
+    )
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "DOMAINS_UNAVAILABLE"
+
+
+def test_shared_metadata_requires_a_configured_platform_connection(client: TestClient) -> None:
+    authorize(client)
+    client.app.state.platform_control_engine = None
+    response = client.get("/api/v1/platform/organizations")
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "PLATFORM_UNAVAILABLE"

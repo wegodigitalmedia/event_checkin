@@ -354,3 +354,36 @@ or Linux capability is required. Worker/dispatcher configuration is unchanged.
 The operator separately reported production migrations at 0013 and all nine
 login roles created. That report was not rechecked against production during
 this correction. External provider and venue gates remain as previously listed.
+
+## Shared platform host without purchased domain — 2026-10-28
+
+Platform administration no longer requires a tenant DNS namespace. With an
+explicit PLATFORM_HOST and restricted platform/identity connections,
+FALLBACK_DOMAIN_SUFFIX may be absent. The existing platform-host-in-owned-zone
+validation still applies whenever an operator configures a fallback zone.
+
+Organization directory/onboarding and privacy endpoints now depend directly on
+the restricted platform control connection. They no longer depend on the
+optional DNS-management service. Platform authentication still requires both
+identity and platform connections; MFA, active grants, origin authentication,
+CSRF, tenant sessions and FORCE RLS are unchanged. DomainService still starts
+only when a fallback zone is configured, so domain provisioning/activation
+returns DOMAINS_UNAVAILABLE in shared-host mode. No fake hostname, broad
+vercel.app namespace, migration or database permission change was introduced.
+
+Validation: 114 non-PostgreSQL tests passed; strict mypy passed for 65 application
+files and Ruff/diff checks passed. Twelve selected real-PostgreSQL tests passed,
+including full platform password/TOTP/session establishment, idempotent shared
+organization creation, directory/privacy access, no domain rows, DNS-operation
+rejection and unauthenticated-access rejection. Legacy domain control, platform
+bootstrap and privacy/tenant isolation tests also passed in that selected run.
+All PostgreSQL test data was disposable/local; no production database or
+administrator record was changed.
+
+Render should retain PLATFORM_HOST=event-checkin-console.vercel.app and leave
+FALLBACK_DOMAIN_SUFFIX unset. Retain the distinct DATABASE_URL,
+IDENTITY_DATABASE_URL, PLATFORM_DATABASE_URL, AUTH_ENCRYPTION_KEY and
+ORIGIN_AUTH_SECRET, verified database TLS and the approved password corpus.
+The API Blueprint now uses Render's assigned origin rather than requiring a
+purchased origin domain. A first administrator still requires the separately
+approved one-time interactive bootstrap; this code change does not execute it.

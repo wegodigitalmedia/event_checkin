@@ -26,13 +26,15 @@ base URL or VITE_* secret variable is required.
 On Render, retain APP_ENV=production, the matching ORIGIN_AUTH_SECRET, verified
 TLS role-specific database URLs, CA secret file and existing auth/worker keys.
 Set PLATFORM_HOST=event-checkin-phi.vercel.app (hostname only). This identifies
-the public shared application host, not the Render origin. If a fallback domain
-zone is already configured, existing validation requires the platform host to
-belong to that owned zone. Do not declare the shared vercel.app suffix a tenant
-owned zone; use an approved custom platform domain when enabling that topology.
-No CORS exception or cookie Domain override is needed.
+the public shared application host, not the Render origin. No purchased domain
+is required: leave FALLBACK_DOMAIN_SUFFIX unset in shared-host mode. Platform
+identity, organization onboarding/directory and privacy workflows use the
+restricted platform connection independently of DNS provisioning. Domain
+provisioning, verification and activation stay disabled without an approved
+owned fallback zone. Never use vercel.app as that zone. If enabling DNS mode
+later, existing namespace validation still requires PLATFORM_HOST to belong to
+the configured owned zone. No CORS exception or cookie Domain override is needed.
 
-PLATFORM_DATABASE_URL additionally requires an approved FALLBACK_DOMAIN_SUFFIX.
 IDENTITY_DATABASE_URL, AUTH_ENCRYPTION_KEY and the approved password corpus
 configuration remain prerequisites for real authentication. Creating database
 login roles alone does not configure these API environment variables. The

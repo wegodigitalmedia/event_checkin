@@ -9,9 +9,7 @@ services:
     dockerfilePath: ./ops/deploy/Dockerfile.api
     dockerContext: .
     healthCheckPath: /ready
-    renderSubdomainPolicy: disabled
-    domains:
-      - REQUIRES_RENDER_ORIGIN_DOMAIN
+    # Use the assigned onrender.com origin; a custom domain is optional.
     autoDeployTrigger: off
     maxShutdownDelaySeconds: 60
     scaling:

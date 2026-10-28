@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
 from app.api.auth import clear_cookie, csrf, csrf_token, set_cookie
@@ -46,6 +47,20 @@ def domains(request: Request) -> DomainService:
     return cast(DomainService, result)
 
 
+def platform_control(request: Request) -> Engine:
+    result = getattr(request.app.state, "platform_control_engine", None)
+    if result is None:
+        raise HTTPException(
+            503,
+            detail={
+                "code": "PLATFORM_UNAVAILABLE",
+                "message": "Platform administration unavailable",
+            },
+        )
+    return cast(Engine, result)
+
+
+Control = Annotated[Engine, Depends(platform_control)]
 Auth = Annotated[PlatformAuth, Depends(platform_auth)]
 Domains = Annotated[DomainService, Depends(domains)]
 
@@ -142,8 +157,8 @@ def notice_failure(exc: Exception) -> HTTPException:
     return HTTPException(409, detail={"code": "NOTICE_STATE", "message": str(exc)})
 
 
-def notice_service(request: Request, service: Domains) -> PrivacyNotices:
-    return PrivacyNotices(service.control_engine, request.app.state.settings.app_env)
+def notice_service(request: Request, control: Engine) -> PrivacyNotices:
+    return PrivacyNotices(control, request.app.state.settings.app_env)
 
 
 def fail(exc: Exception) -> HTTPException:
@@ -248,14 +263,14 @@ def actor(request: Request, auth: PlatformAuth) -> UUID:
 def list_organizations(
     request: Request,
     auth: Auth,
-    service: Domains,
+    control: Control,
     q: str = Query(default="", max_length=100),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0, le=100_000),
 ) -> OrganizationPageResponse:
     try:
         return OrganizationPageResponse.model_validate(
-            PlatformOrganizations(service.control_engine).list(
+            PlatformOrganizations(control).list(
                 actor(request, auth), query=q, limit=limit, offset=offset
             )
         )
@@ -265,10 +280,10 @@ def list_organizations(
 
 @router.get("/organizations/{tenant_id}", response_model=OrganizationResponse)
 def get_organization(
-    tenant_id: UUID, request: Request, auth: Auth, service: Domains
+    tenant_id: UUID, request: Request, auth: Auth, control: Control
 ) -> OrganizationResponse:
     try:
-        organization = PlatformOrganizations(service.control_engine).get(
+        organization = PlatformOrganizations(control).get(
             actor(request, auth), tenant_id
         )
     except (AuthDenied, DomainDenied) as exc:
@@ -285,11 +300,11 @@ def get_organization(
     response_model=PrivacyNoticeListResponse,
 )
 def list_privacy_notices(
-    tenant_id: UUID, request: Request, auth: Auth, service: Domains
+    tenant_id: UUID, request: Request, auth: Auth, control: Control
 ) -> PrivacyNoticeListResponse:
     try:
         return PrivacyNoticeListResponse.model_validate(
-            notice_service(request, service).list(actor(request, auth), tenant_id)
+            notice_service(request, control).list(actor(request, auth), tenant_id)
         )
     except (AuthDenied, DomainDenied, PrivacyNoticeDenied) as exc:
         raise notice_failure(exc) from exc
@@ -302,11 +317,11 @@ def list_privacy_notices(
     response_model=PrivacyNoticeResponse,
 )
 def draft_privacy_notice(
-    tenant_id: UUID, body: NoticeDraftBody, request: Request, auth: Auth, service: Domains
+    tenant_id: UUID, body: NoticeDraftBody, request: Request, auth: Auth, control: Control
 ) -> PrivacyNoticeResponse:
     try:
         return PrivacyNoticeResponse.model_validate(
-            notice_service(request, service).draft(
+            notice_service(request, control).draft(
                 actor(request, auth), tenant_id, body.body, body.lawful_basis, body.test_only
             )
         )
@@ -325,7 +340,7 @@ def approve_privacy_notice(
     body: NoticeApprovalBody,
     request: Request,
     auth: Auth,
-    service: Domains,
+    control: Control,
 ) -> PrivacyNoticeResponse:
     if not body.confirmed:
         raise HTTPException(
@@ -337,7 +352,7 @@ def approve_privacy_notice(
         )
     try:
         return PrivacyNoticeResponse.model_validate(
-            notice_service(request, service).approve(
+            notice_service(request, control).approve(
                 actor(request, auth), tenant_id, version, body.approval_reference
             )
         )
@@ -356,7 +371,7 @@ def activate_privacy_notice(
     body: NoticeActivationBody,
     request: Request,
     auth: Auth,
-    service: Domains,
+    control: Control,
 ) -> PrivacyNoticeResponse:
     if not body.confirmed:
         raise HTTPException(
@@ -368,7 +383,7 @@ def activate_privacy_notice(
         )
     try:
         return PrivacyNoticeResponse.model_validate(
-            notice_service(request, service).activate(actor(request, auth), tenant_id, version)
+            notice_service(request, control).activate(actor(request, auth), tenant_id, version)
         )
     except (AuthDenied, DomainDenied, PrivacyNoticeDenied) as exc:
         raise notice_failure(exc) from exc
@@ -379,10 +394,10 @@ def create_shared_organization(
     body: SharedOrganizationBody,
     request: Request,
     auth: Auth,
-    service: Domains,
+    control: Control,
 ) -> dict[str, str]:
     try:
-        return SharedOnboarding(service.control_engine, request.app.state.email_delivery).create(
+        return SharedOnboarding(control, request.app.state.email_delivery).create(
             actor=actor(request, auth),
             idempotency_key=body.idempotency_key,
             name=body.name,
@@ -401,10 +416,10 @@ def resend_shared_organizer(
     tenant_id: UUID,
     request: Request,
     auth: Auth,
-    service: Domains,
+    control: Control,
 ) -> dict[str, str]:
     try:
-        return SharedOnboarding(service.control_engine, request.app.state.email_delivery).resend(
+        return SharedOnboarding(control, request.app.state.email_delivery).resend(
             actor(request, auth),
             tenant_id,
             request.state.trusted_origin,
