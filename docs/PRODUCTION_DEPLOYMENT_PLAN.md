@@ -11,10 +11,11 @@ Browser + custom/wildcard HTTPS domains
   -> Vercel static Vite application
   -> same-origin Vercel Functions (/api/* and /ready)
        strict header allowlist + origin-auth secret + public Host/client IP
-  -> Render API origin (Caddy on $PORT)
+  -> Render API origin (Uvicorn on 0.0.0.0:$PORT)
        /ready and Brevo callback are explicit exceptions
-       every browser API path requires the Vercel-to-Render secret
-  -> Uvicorn on loopback, proxy-header processing disabled
+       outer ASGI middleware requires the Vercel-to-Render secret
+       and reconstructs authority/client IP only from its authenticated envelope
+       Uvicorn proxy-header processing remains disabled
   -> Supabase PostgreSQL using distinct NOBYPASSRLS login roles
 
 Render background services:
@@ -32,8 +33,11 @@ configuration is [frontend/vercel.json](../frontend/vercel.json). Server-only
 variables are shown in `frontend/.env.production.example`; never prefix them
 with `VITE_`.
 
-Render builds [Dockerfile.api](../ops/deploy/Dockerfile.api). Caddy is the only
-peer Uvicorn trusts (`INGRESS_PROXY_IPS=127.0.0.1`). The example Blueprint is
+Render builds [Dockerfile.api](../ops/deploy/Dockerfile.api). The API starts Uvicorn directly; Render terminates HTTPS. The outer application
+middleware authenticates `ORIGIN_AUTH_SECRET` before accepting public host/client
+headers from Vercel. It removes untrusted proxy headers and the private envelope.
+Render proxy IPs need not be enumerated; leave `INGRESS_PROXY_IPS` unset for this
+topology. The example Blueprint is
 [render.production.yaml.example](../ops/deploy/render.production.yaml.example).
 It deliberately contains invalid `REQUIRES_*` values and has automatic deploys
 disabled. Approve region, plan, domains, and cost before creating resources.
@@ -94,7 +98,10 @@ disabled. Approve region, plan, domains, and cost before creating resources.
 
 ## Runtime and shutdown requirements
 
-- API startup: `start-api` (Caddy plus Uvicorn on loopback).
+- API startup: `start-api` (`exec uvicorn app.main:app --host 0.0.0.0
+  --port "${PORT:-10000}" --no-proxy-headers --no-server-header`).
+  Leave the Render Docker Command override empty (or use `start-api`).
+  Keep the health check at `/ready`; `/health` is a public liveness probe.
 - Worker: `celery -A app.worker.celery_app:celery_app worker --loglevel=INFO
   --concurrency=4`; two instances in the example. Confirm Brevo quota before
   increasing concurrency.

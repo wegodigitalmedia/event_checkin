@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     bootstrap_database_url: SecretStr | None = None
     domain_worker_database_url: SecretStr | None = None
     domain_scheduler_database_url: SecretStr | None = None
+    origin_auth_secret: SecretStr | None = None
     ingress_proxy_ips: str = ""
     local_domain_fixture: str | None = None
     log_level: str = "INFO"
@@ -159,6 +160,8 @@ class Settings(BaseSettings):
             ):
                 if other is not None and make_url(other.get_secret_value()).username == username:
                     raise ValueError(f"{name} database role must be separate")
+        if self.origin_auth_secret is not None and not self.origin_auth_secret.get_secret_value():
+            raise ValueError("ORIGIN_AUTH_SECRET must not be empty")
         if self.ingress_proxy_ips:
             for peer in self.ingress_proxy_ips.split(","):
                 ip_address(peer.strip())
@@ -196,7 +199,11 @@ class Settings(BaseSettings):
             if identity.username == runtime.username:
                 raise ValueError("identity and tenant runtime database roles must differ")
         if self.app_env in {Environment.STAGING, Environment.PRODUCTION}:
-            if self.platform_database_url is not None and not self.ingress_proxy_ips:
+            if (
+                self.platform_database_url is not None
+                and not self.ingress_proxy_ips
+                and self.origin_auth_secret is None
+            ):
                 raise ValueError("remote platform control plane requires trusted ingress peers")
             if self.identity_database_url is not None and self.auth_encryption_key is None:
                 raise ValueError("remote authentication requires AUTH_ENCRYPTION_KEY")

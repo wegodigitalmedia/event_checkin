@@ -39,6 +39,7 @@ from app.registration.service import RegistrationService
 from app.registration.throttle import DenyRegistrationLimiter, RedisRegistrationLimiter
 from app.tenancy.authority import AuthorityDenied, canonical_authority, trusted_client_address
 from app.tenancy.domains import DisabledDomainProvider, DomainService, FixtureDomainProvider
+from app.tenancy.ingress import AuthenticatedOriginMiddleware
 from app.tenancy.platform_auth import PlatformAuth
 from app.tenancy.shared_host import CONTEXT_COOKIE, shared_host_tenant, verify_context
 from app.tickets.crypto import TicketKeyring, TicketKeyUnavailable
@@ -306,6 +307,8 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         return readiness(database_engine, response)
 
     app.add_api_route("/ready", readiness_route, methods=["GET"], include_in_schema=False)
+    if settings.origin_auth_secret is not None:
+        app.add_middleware(AuthenticatedOriginMiddleware, secret=settings.origin_auth_secret)
     return app
 
 

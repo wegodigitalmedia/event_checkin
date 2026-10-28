@@ -20,8 +20,6 @@ services:
       targetCPUPercent: 60
     envVars:
       - fromGroup: event-checkin-api-production
-      - key: INGRESS_PROXY_IPS
-        value: 127.0.0.1
 
   - type: worker
     runtime: docker

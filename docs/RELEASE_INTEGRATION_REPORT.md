@@ -296,3 +296,61 @@ The file must set DATABASE_URL (not only MIGRATION_DATABASE_URL), use
 sslmode=verify-full with sslrootcert=/etc/secrets/supabase-ca.crt, and retain the
 required function-owner memberships. The command is supplied for review only;
 it was not run against production. Do not log or commit the populated env file.
+
+## Render direct-Uvicorn startup correction — 2026-10-28
+
+The old image's copied Caddy binary has a security.capability extended attribute.
+Running it locally with `--cap-drop ALL` reproduces `Operation not permitted`
+before Caddy starts. The reported Render failure is consistent with that
+execution restriction; no live Render inspection was performed.
+
+The API Dockerfile no longer copies or starts Caddy. `start-api` requires
+ORIGIN_AUTH_SECRET and execs Uvicorn as PID 1 on `0.0.0.0:${PORT:-10000}`, with
+`--no-proxy-headers --no-server-header`. UID 10001 and dependency constraints are
+preserved. Caddyfile.api is marked as a legacy configuration and is not included
+in this image.
+
+An outer ASGI middleware now implements the former Caddy origin boundary:
+constant-time origin-secret verification, single-value authenticated host/IP
+headers, removal of untrusted forwarded headers and the private envelope, and
+public HTTPS/client identity reconstruction. Existing canonical-host validation,
+CSRF, tenant-context/session checks and RLS remain intact. Direct requests cannot
+replace origin authentication merely by supplying a trusted-peer IP. Health and
+readiness remain public; the Brevo callback independently authenticates its
+Bearer token before parsing the request body. Missing/wrong origin secrets
+return 404; malformed authenticated authority returns 421.
+
+Validation:
+
+- 108 non-PostgreSQL backend tests passed, 64 PostgreSQL tests deselected.
+- 48 targeted ingress/auth/host/configuration/health/Brevo tests passed, included
+  in the 108 above. Vercel production-proxy tests passed.
+- Strict mypy passed for 65 application files; Ruff, shell syntax and diff checks
+  passed.
+- Built `event-checkin-api:render-uvicorn-final`, image ID
+  `sha256:0d4ab91d566d2ad181b2a074540dabafa2d8b83b30ea38ba533e14a383bb91e1`.
+- Tested the actual image with APP_ENV=production, capabilities dropped,
+  no-new-privileges and a disposable PostgreSQL database using synthetic TLS and
+  sslmode=verify-full. No production database was contacted.
+- Custom port 18006 and the empty-PORT fallback 10000 both started as non-root
+  Uvicorn PID 1. Caddy is absent; effective Linux capabilities are zero.
+- `/health` and `/ready` returned 200 (worker still `not_configured`); direct API
+  and wrong origin secret returned 404; authenticated CSRF returned 200 with
+  secure cookie flags despite hostile forwarded headers; unsigned tenant
+  context returned 421; malformed unauthenticated Brevo callback returned 401.
+  Invalid authenticated public host returned 421. Checked responses had no
+  Server header. Both API containers exited 0 after graceful SIGTERM shutdown.
+
+Render configuration: use ops/deploy/Dockerfile.api with repository-root build
+context; clear any stale Docker Command override or set it to `start-api`.
+Retain APP_ENV=production, the same encrypted ORIGIN_AUTH_SECRET on Render and
+Vercel, approved PLATFORM_HOST/fallback domain, role-specific database URLs and
+CA mounts. Use Render's PORT and healthCheckPath=/ready. HTTPS terminates at
+Render; do not enable Uvicorn proxy-header processing or add broad trusted-IP
+ranges. INGRESS_PROXY_IPS is unnecessary in authenticated-origin mode; an old
+loopback value is ignored once ORIGIN_AUTH_SECRET is configured. No new secret
+or Linux capability is required. Worker/dispatcher configuration is unchanged.
+
+The operator separately reported production migrations at 0013 and all nine
+login roles created. That report was not rechecked against production during
+this correction. External provider and venue gates remain as previously listed.

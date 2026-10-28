@@ -12,6 +12,22 @@ class AuthorityDenied(ValueError):
     pass
 
 
+def require_trusted_ingress(request: Request, settings: Settings) -> None:
+    if settings.origin_auth_secret is not None:
+        if request.scope.get("eventcheckin.authenticated_origin") is not True:
+            raise AuthorityDenied("Authenticated origin is required")
+        return
+    peer = request.scope.get("client")
+    allowed = {
+        ip_address(item.strip()) for item in settings.ingress_proxy_ips.split(",") if item.strip()
+    }
+    try:
+        if peer is None or ip_address(peer[0]) not in allowed:
+            raise AuthorityDenied("Ingress peer is not trusted")
+    except ValueError as exc:
+        raise AuthorityDenied("Ingress peer is not trusted") from exc
+
+
 def trusted_client_address(request: Request, settings: Settings) -> str:
     """Use one edge-overwritten client address from an authenticated ingress peer."""
     peer = request.scope.get("client")
@@ -31,14 +47,7 @@ def trusted_client_address(request: Request, settings: Settings) -> str:
             return str(ip_address(peer[0]))
         except ValueError as exc:
             raise AuthorityDenied("Client address is unavailable") from exc
-    allowed = {
-        ip_address(item.strip()) for item in settings.ingress_proxy_ips.split(",") if item.strip()
-    }
-    try:
-        if ip_address(peer[0]) not in allowed:
-            raise AuthorityDenied("Ingress peer is not trusted")
-    except ValueError as exc:
-        raise AuthorityDenied("Ingress peer is not trusted") from exc
+    require_trusted_ingress(request, settings)
     if len(forwarded) != 1:
         raise AuthorityDenied("Trusted ingress client address is required")
     try:
@@ -54,8 +63,8 @@ def canonical_authority(request: Request, settings: Settings) -> tuple[str, str]
     """Return normalized hostname and public origin, never a forwarded host.
 
     Uvicorn must run with proxy-header processing disabled. In remote
-    environments only configured ingress peers can reach application routes;
-    the edge must strip forwarded authority headers and validate SNI/Host.
+    environments an authenticated origin middleware or configured ingress peer
+    must establish authority before application routes are reached.
     """
     raw_headers = request.scope.get("headers", [])
     hosts = [value for key, value in raw_headers if key.lower() == b"host"]
@@ -64,17 +73,7 @@ def canonical_authority(request: Request, settings: Settings) -> tuple[str, str]
     if any(key.lower() in {b"forwarded", b"x-forwarded-host"} for key, _ in raw_headers):
         raise AuthorityDenied("Forwarded authority is not accepted")
     if settings.app_env in {Environment.STAGING, Environment.PRODUCTION}:
-        peer = request.scope.get("client")
-        allowed = {
-            ip_address(item.strip())
-            for item in settings.ingress_proxy_ips.split(",")
-            if item.strip()
-        }
-        try:
-            if peer is None or ip_address(peer[0]) not in allowed:
-                raise AuthorityDenied("Ingress peer is not trusted")
-        except ValueError as exc:
-            raise AuthorityDenied("Ingress peer is not trusted") from exc
+        require_trusted_ingress(request, settings)
     try:
         authority = hosts[0].decode("ascii", "strict")
     except UnicodeDecodeError as exc:

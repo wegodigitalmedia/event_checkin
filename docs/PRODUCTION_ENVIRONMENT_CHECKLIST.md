@@ -36,7 +36,9 @@ repository `.env` file. Start from `.env.production.example` and
 - [ ] API origin domain attached; default Render subdomain disabled.
 - [ ] `ORIGIN_AUTH_SECRET` is random, shared only with Vercel and rotated via a
       coordinated maintenance procedure.
-- [ ] `INGRESS_PROXY_IPS=127.0.0.1`; Uvicorn remains `--no-proxy-headers`.
+- [ ] Uvicorn binds `0.0.0.0:$PORT` with `--no-proxy-headers`; application
+  middleware authenticates the Vercel origin envelope. `INGRESS_PROXY_IPS` is
+  unnecessary for the direct Render path. Clear stale Docker Command overrides.
 - [ ] Auth key, ticket keyring, registration HMAC and webhook token are
       independently generated and backed up according to policy.
 - [ ] Password corpus file and SHA-256 are mounted and verified at startup.

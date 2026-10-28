@@ -9,11 +9,6 @@ COPY backend/alembic.ini ./
 COPY backend/alembic ./alembic
 RUN pip install --no-cache-dir --constraint requirements.lock .
 
-FROM caddy:2.10.2-alpine AS caddy
-
-FROM api
-COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
-COPY ops/deploy/Caddyfile.api /etc/caddy/Caddyfile
 COPY ops/deploy/start-api.sh /usr/local/bin/start-api
 RUN chmod 0555 /usr/local/bin/start-api && chown -R appuser:appuser /app
 USER 10001

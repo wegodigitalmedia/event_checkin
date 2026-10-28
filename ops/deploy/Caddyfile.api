@@ -1,3 +1,5 @@
+# Legacy Caddy topology only; Dockerfile.api starts Uvicorn directly on Render.
+# Do not insert this proxy ahead of authenticated-origin mode: it consumes the envelope.
 {
 	auto_https off
 	admin off
