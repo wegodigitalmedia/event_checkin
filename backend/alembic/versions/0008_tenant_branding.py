@@ -104,6 +104,7 @@ def upgrade() -> None:
     op.execute("GRANT SELECT, INSERT, UPDATE ON tenant_branding_drafts TO eventcheckin_runtime")
     op.execute("GRANT SELECT, INSERT ON tenant_branding_versions TO eventcheckin_runtime")
     op.execute("GRANT SELECT, INSERT ON tenant_branding_audit TO eventcheckin_runtime")
+    op.execute("GRANT CREATE ON SCHEMA public TO eventcheckin_domain_resolver")
     op.execute("""CREATE FUNCTION current_active_tenant_profile()
       RETURNS TABLE(id uuid, name text) LANGUAGE sql STABLE SECURITY DEFINER
       SET search_path = public, pg_temp AS $$
@@ -113,6 +114,7 @@ def upgrade() -> None:
     op.execute(
         "ALTER FUNCTION current_active_tenant_profile() OWNER TO eventcheckin_domain_resolver"
     )
+    op.execute("REVOKE CREATE ON SCHEMA public FROM eventcheckin_domain_resolver")
     op.execute("REVOKE ALL ON FUNCTION current_active_tenant_profile() FROM PUBLIC")
     op.execute("GRANT EXECUTE ON FUNCTION current_active_tenant_profile() TO eventcheckin_runtime")
     op.execute("""CREATE FUNCTION reject_branding_history_mutation() RETURNS trigger

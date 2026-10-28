@@ -226,3 +226,73 @@ Follow `PRODUCTION_DEPLOYMENT_PLAN.md`, `PRODUCTION_ENVIRONMENT_CHECKLIST.md`,
 Local verification is complete within the evidence limits above. Production
 verification, TLS database readiness, external provider configuration, complete
 CI evidence, restore rehearsal and venue approval remain incomplete.
+
+## Migration permission correction — 2026-10-28
+
+This follow-up intentionally changes the previously committed upgrade bodies in
+`0006_tenant_provisioning.py` and `0008_tenant_branding.py`. Revision IDs,
+dependencies, downgrade bodies, RLS policies, role memberships and function
+bodies are unchanged. Already-applied revisions are not replayed automatically.
+
+### Confirmed transaction failure
+
+`alembic/env.py` runs an upgrade invocation in a single PostgreSQL transaction.
+A committed preflight CREATE grant can be true before a fresh upgrade, while
+`0002` revokes it inside that transaction. Original `0006` does not restore it.
+Its existing active-domain function is already resolver-owned, so assigning the
+same owner does not expose the missing target-schema permission. Transferring
+the newly created auth-domain function does, producing SQLSTATE 42501 at
+`ALTER FUNCTION resolve_auth_tenant_domain(citext) OWNER TO
+ eventcheckin_domain_resolver`. Rollback restores the preflight grant, explaining
+why an independent check after failure sees CREATE=true again.
+
+This exact sequence was reproduced locally on PostgreSQL 17 with a restricted
+NOSUPERUSER/NOBYPASSRLS migration login and SET/INHERIT membership in the three
+function-owner roles. The trace verified CREATE=true before upgrade,
+CREATE=false immediately after the 0002 revoke, the exact failing 0006 statement,
+and CREATE=true after rollback. It is a confirmed mechanism matching the
+reported production symptoms; no production database inspection was performed.
+If production had already committed 0005 before the failing invocation, this
+specific 0002-in-the-same-transaction explanation would not apply.
+
+### Correction and validation
+
+0006 now grants CREATE to the domain resolver immediately before replacing the
+active-domain function, retains it through both ownership transfers, and revokes
+it immediately after the auth-domain transfer. 0008 grants/revokes CREATE around
+its profile function creation/ownership transfer. 0012 already uses the correct
+grant/transfer/revoke sequence and is unchanged. No superuser/BYPASSRLS grants,
+policy changes or lasting schema CREATE rights were introduced.
+
+Two new real-PostgreSQL regressions cover a fresh transaction and an upgrade from
+committed 0005, both using a restricted migration login. They verify head 0013,
+the five restricted function owners, revoked schema CREATE for all three owner
+roles, NOLOGIN/NOSUPERUSER/NOBYPASSRLS attributes, and FORCE RLS on representative
+tenant tables. Both passed.
+
+The targeted migration harness, tenant isolation, branding, privacy and shared
+onboarding run produced 15 passes and one fixture failure: the disposable
+cluster lacked the pre-existing `eventcheckin` role expected by an isolation
+test. Supplying that NOLOGIN/NOBYPASSRLS fixture role locally and rerunning only
+the failed test passed. Total: all 16 selected tests passed across the initial
+run and targeted rerun. Ruff and `git diff --check` also passed.
+
+The production image is rebuilt only after this validation, under
+`event-checkin-api:migration-permissions-final`. No production connection,
+migration, external deployment or push is part of this correction.
+
+The production Dockerfile includes Alembic but does not include
+`ops/deploy/migrate.sh`. With an approved, operator-managed environment file
+containing production APP_ENV and a migration-owner DATABASE_URL, the image
+command is:
+
+```sh
+docker run --rm --env-file /secure/eventcheckin-migration.env \
+  --mount type=bind,src=/secure/supabase-ca.crt,dst=/etc/secrets/supabase-ca.crt,readonly \
+  --entrypoint alembic event-checkin-api:migration-permissions-final upgrade head
+```
+
+The file must set DATABASE_URL (not only MIGRATION_DATABASE_URL), use
+sslmode=verify-full with sslrootcert=/etc/secrets/supabase-ca.crt, and retain the
+required function-owner memberships. The command is supplied for review only;
+it was not run against production. Do not log or commit the populated env file.

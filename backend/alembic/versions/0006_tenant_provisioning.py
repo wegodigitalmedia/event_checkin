@@ -339,6 +339,7 @@ def upgrade() -> None:
     op.execute("""CREATE TRIGGER revoke_platform_grant_sessions
       AFTER UPDATE OR DELETE ON platform_grants FOR EACH ROW
       EXECUTE FUNCTION revoke_platform_grant_sessions()""")
+    op.execute("GRANT CREATE ON SCHEMA public TO eventcheckin_domain_resolver")
     op.execute("""CREATE OR REPLACE FUNCTION resolve_active_tenant_domain(p_hostname citext)
       RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER
       SET search_path = public, pg_temp AS $$
@@ -371,6 +372,7 @@ def upgrade() -> None:
     op.execute(
         "ALTER FUNCTION resolve_auth_tenant_domain(citext) OWNER TO eventcheckin_domain_resolver"
     )
+    op.execute("REVOKE CREATE ON SCHEMA public FROM eventcheckin_domain_resolver")
     op.execute("REVOKE ALL ON FUNCTION resolve_auth_tenant_domain(citext) FROM PUBLIC")
     op.execute(
         "GRANT EXECUTE ON FUNCTION resolve_auth_tenant_domain(citext) TO eventcheckin_identity"
