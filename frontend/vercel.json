@@ -6,7 +6,8 @@
   "rewrites": [
     { "source": "/ready", "destination": "/api/readiness" },
     { "source": "/reset", "destination": "/index.html" },
-    { "source": "/invite", "destination": "/index.html" }
+    { "source": "/invite", "destination": "/index.html" },
+    { "source": "/api/:path*", "destination": "/api/render-proxy?__render_path=:path*" }
   ],
   "headers": [
     {

@@ -1,7 +1,7 @@
 import { isIP } from 'node:net';
 
 const REQUEST_HEADERS = ['accept', 'content-type', 'cookie', 'origin', 'user-agent', 'x-csrf-token'];
-const RESPONSE_HEADERS = ['cache-control', 'content-disposition', 'content-type', 'referrer-policy', 'x-content-type-options'];
+const RESPONSE_HEADERS = ['content-disposition', 'content-type', 'referrer-policy', 'x-content-type-options'];
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
 
 function singleHeader(value) {
@@ -21,14 +21,24 @@ async function body(request) {
 }
 
 export async function proxyToRender(request, response, targetPath) {
-  const origin = process.env.RENDER_API_ORIGIN;
-  const originSecret = process.env.ORIGIN_AUTH_SECRET;
-  if (!origin?.startsWith('https://') || !originSecret) {
+  response.setHeader('Cache-Control', 'no-store');
+  const configuredOrigin = process.env.RENDER_API_ORIGIN;
+  let origin;
+  try {
+    origin = new URL(configuredOrigin);
+    if (origin.protocol !== 'https:' || origin.username || origin.password
+      || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('INVALID_ORIGIN');
+  } catch {
     response.status(503).json({ detail: { code: 'ORIGIN_UNAVAILABLE' } });
     return;
   }
-  const publicHost = singleHeader(request.headers.host)?.toLowerCase();
-  const clientIp = singleHeader(request.headers['x-real-ip']);
+  const originSecret = process.env.ORIGIN_AUTH_SECRET;
+  if (!originSecret) {
+    response.status(503).json({ detail: { code: 'ORIGIN_UNAVAILABLE' } });
+    return;
+  }
+  const publicHost = typeof request.headers.host === 'string' ? request.headers.host.toLowerCase() : undefined;
+  const clientIp = typeof request.headers['x-real-ip'] === 'string' ? request.headers['x-real-ip'] : undefined;
   if (!publicHost || !/^[a-z0-9.-]+$/.test(publicHost) || !clientIp || !isIP(clientIp)) {
     response.status(400).json({ detail: { code: 'INVALID_INGRESS' } });
     return;
@@ -42,7 +52,12 @@ export async function proxyToRender(request, response, targetPath) {
   headers['x-eventcheckin-public-host'] = publicHost;
   headers['x-eventcheckin-client-ip'] = clientIp;
   try {
-    const upstream = await fetch(new URL(targetPath, origin), {
+    const target = new URL(targetPath, origin);
+    if (target.origin !== origin.origin || !(target.pathname.startsWith('/api/') || target.pathname === '/ready')) {
+      response.status(400).json({ detail: { code: 'INVALID_API_PATH' } });
+      return;
+    }
+    const upstream = await fetch(target, {
       method: request.method,
       headers,
       body: await body(request),
@@ -53,7 +68,7 @@ export async function proxyToRender(request, response, targetPath) {
       const value = upstream.headers.get(name);
       if (value) response.setHeader(name, value);
     }
-    const cookies = upstream.headers.getSetCookie?.() || [];
+    const cookies = upstream.headers.getSetCookie();
     if (cookies.length) response.setHeader('set-cookie', cookies);
     response.send(Buffer.from(await upstream.arrayBuffer()));
   } catch (error) {
