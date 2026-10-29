@@ -56,13 +56,13 @@ function App() {
 
   function submit(form: FormEvent<HTMLFormElement>) {
     form.preventDefault();
-    if (!event || !event.available || !event.privacy_notice || sending) return;
+    if (!event || !event.available || sending) return;
     setSending(true); setError('');
     void fetch(`/api/v1/public/events/${encodeURIComponent(event.slug)}/registrations`, {
       method: 'POST', cache: 'no-store', credentials: 'omit',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ full_name: name, email, phone, custom_answers: answers,
-        form_version: event.form_version, notice_version: event.privacy_notice.version,
+        form_version: event.form_version, notice_version: event.privacy_notice?.version,
         notice_acknowledged: acknowledged, marketing_opt_in: marketing }),
     }).then(async (response) => {
       if (!response.ok) {
@@ -93,7 +93,7 @@ function App() {
       {complete ? <section className="registration-card"><Status tone="success" title="Request received"
         instruction="If your registration can be completed, your ticket will arrive by email. Check spam or ask the organizer for delivery help."
         announce="polite" /></section>
-      : !event.available || !event.privacy_notice ? <section className="registration-card"><Status tone="warning" title="Registration unavailable"
+      : !event.available ? <section className="registration-card"><Status tone="warning" title="Registration unavailable"
         instruction="Registration is not open on this page. Ask the organizer if you need help." announce="polite" /></section>
       : <section className="registration-card" aria-labelledby="register-title">
         <h2 id="register-title">Reserve your place</h2>
@@ -114,13 +114,13 @@ function App() {
             : <label className="registration-check"><input type="checkbox" checked={answers[field.key] === true} required={field.required}
               onChange={(change) => setAnswers({ ...answers, [field.key]: change.target.checked })} />{field.label}</label>}
           </div>)}
-          <div className="registration-privacy">
+          {event.privacy_notice && <div className="registration-privacy">
             <h3>Privacy notice</h3><p className="registration-notice">{event.privacy_notice.body}</p>
             <label className="registration-check"><input type="checkbox" required checked={acknowledged}
               onChange={(change) => setAcknowledged(change.target.checked)} />I have read the privacy notice.</label>
             <label className="registration-check"><input type="checkbox" checked={marketing}
               onChange={(change) => setMarketing(change.target.checked)} />I would like optional event updates. This choice does not affect registration.</label>
-          </div>
+          </div>}
           {error && <Status tone="danger" title="Check your registration" instruction={error} announce="assertive" />}
           <Button type="submit" loading={sending} loadingText="Submitting…" touchCritical
             style={brand?.primary_color && brand.action_text_color ?

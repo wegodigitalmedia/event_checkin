@@ -7,7 +7,7 @@ import { useHashRoute } from './router';
 import { PrivacyNotices } from './PrivacyNotices';
 
 const nav: NavItem[] = [
-  {route:'overview',label:'Overview',icon:'overview'}, {route:'organizations',label:'Organizations',icon:'organizations'}, {route:'privacy',label:'Privacy notices',icon:'shield'},
+  {route:'overview',label:'Overview',icon:'overview'}, {route:'organizations',label:'Organizations',icon:'organizations'}, {route:'privacy',label:'Privacy notices',icon:'shield',badge:'Soon'},
   {route:'domains',label:'Domains',icon:'domains'},
   {route:'subscriptions',label:'Subscriptions',icon:'billing',badge:'Soon'},
   {route:'operations',label:'Operations',icon:'operations'}, {route:'settings',label:'Settings',icon:'settings'},

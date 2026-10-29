@@ -77,7 +77,7 @@ export function OrganizationDirectory({ authorized, refreshKey }: { authorized: 
     {detailError && <p className="request-error" role="alert">{detailError}</p>}
     {selected && !detailLoading && <section className="organization-detail" aria-labelledby="selected-organization-title"><h3 id="selected-organization-title">{selected.name}</h3>
       <dl><div><dt>Status</dt><dd>{selected.status}</dd></div><div><dt>Primary organizer</dt><dd>{selected.primary_organizer || 'Not recorded'}</dd></div><div><dt>Invitation transport</dt><dd>{selected.invitation_delivery_status?.replaceAll('_', ' ') || 'Not recorded'}</dd></div><div><dt>Created</dt><dd>{new Date(selected.created_at).toLocaleString()}</dd></div><div><dt>Organization UUID</dt><dd><code>{selected.id}</code></dd></div></dl>
-      <div className="page-actions"><button className="product-button product-button--secondary" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy UUID'}</button><a className="product-button" href={`#privacy?organization=${encodeURIComponent(selected.id)}`}>Manage privacy notices</a></div>
+      <div className="page-actions"><button className="product-button product-button--secondary" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy UUID'}</button></div>
     </section>}
   </section>;
 }

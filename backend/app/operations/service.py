@@ -227,8 +227,10 @@ class EventOperationsService:
         engine: Engine,
         auth: AuthService | None,
         keys: TicketKeyring | None = None,
+        privacy_notices_enabled: bool = True,
     ) -> None:
         self.engine, self.auth, self.keys = engine, auth, keys
+        self.privacy_notices_enabled = privacy_notices_enabled
 
     def _scope(
         self, host: str, token: str, permission: str, event_id: UUID, gate_id: UUID | None = None
@@ -351,6 +353,8 @@ class EventOperationsService:
         with authorized_tenant_session(self.engine, tenant) as db:
             if db.get(Event, event_id) is None:
                 raise OperationDenied("Event unavailable")
+            if not self.privacy_notices_enabled:
+                return {"available": True, "message": "Participant import available."}
             try:
                 self._active_notice(db, tenant)
             except OperationDenied as exc:
@@ -375,7 +379,7 @@ class EventOperationsService:
             )
             if batch is None or batch.status in {"queued", "processing", "completed"}:
                 raise OperationDenied("Import is unavailable for validation")
-            notice = self._active_notice(db, tenant)
+            notice = self._active_notice(db, tenant) if self.privacy_notices_enabled else None
             event = db.scalar(select(Event).where(Event.id == event_id))
             if event is None:
                 raise OperationDenied("Event registration form unavailable")
@@ -486,8 +490,8 @@ class EventOperationsService:
                     row.status = "valid"
                     valid += 1
             batch.mapping = mapping
-            batch.notice_version = notice.version
-            batch.lawful_basis = notice.lawful_basis
+            batch.notice_version = notice.version if notice else None
+            batch.lawful_basis = notice.lawful_basis if notice else None
             batch.valid_count, batch.invalid_count, batch.duplicate_count = (
                 valid,
                 invalid,
@@ -587,7 +591,9 @@ class EventOperationsService:
             raise OperationDenied("Import unavailable")
         if batch.status == "completed":
             return
-        if batch.status not in {"queued", "processing"} or batch.notice_version is None:
+        if batch.status not in {"queued", "processing"} or (
+            self.privacy_notices_enabled and batch.notice_version is None
+        ):
             raise OperationDenied("Import has not been validated")
         event = db.scalar(select(Event).where(Event.id == job.event_id))
         if event is None or event.status != "published":
@@ -601,7 +607,7 @@ class EventOperationsService:
                 RegistrationNoticeVersion.approved_at.is_not(None),
             )
         )
-        if (
+        if self.privacy_notices_enabled and (
             notice is None
             or notice.lawful_basis != batch.lawful_basis
             or hashlib.sha256(notice.body.encode("utf-8")).digest() != notice.sha256
@@ -642,20 +648,21 @@ class EventOperationsService:
                         )
                     )
                     db.flush()
-                    db.add(
-                        RegistrationConsent(
-                            id=uuid4(),
-                            tenant_id=batch.tenant_id,
-                            event_id=batch.event_id,
-                            registration_id=registration_id,
-                            notice_version=notice.version,
-                            notice_digest=notice.sha256,
-                            lawful_basis=notice.lawful_basis,
-                            acknowledged_at=null(),
-                            marketing_opt_in=False,
-                            source="bulk",
+                    if notice is not None:
+                        db.add(
+                            RegistrationConsent(
+                                id=uuid4(),
+                                tenant_id=batch.tenant_id,
+                                event_id=batch.event_id,
+                                registration_id=registration_id,
+                                notice_version=notice.version,
+                                notice_digest=notice.sha256,
+                                lawful_basis=notice.lawful_basis,
+                                acknowledged_at=null(),
+                                marketing_opt_in=False,
+                                source="bulk",
+                            )
                         )
-                    )
                     if event.registration_mode == "public":
                         enqueue_job(
                             db,

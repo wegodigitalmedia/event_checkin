@@ -110,7 +110,9 @@ def process_job(job_id: str) -> None:
             handlers["ticket.deliver"] = tickets.deliver_job
         from app.operations.service import EventOperationsService
 
-        imports = EventOperationsService(runtime, None, None)
+        imports = EventOperationsService(
+            runtime, None, None, privacy_notices_enabled=current.privacy_notices_enabled
+        )
         handlers["registration.import"] = imports.process_import_job
         execute_job(operator, runtime, verified_job_id, handlers)
     finally:

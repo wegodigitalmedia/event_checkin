@@ -128,7 +128,7 @@ def test_shared_console_mfa_and_organization_creation_without_dns(pg: Harness) -
         assert directory.status_code == 200 and directory.json()["total"] == 1
         assert client.get(
             f"/api/v1/platform/organizations/{tenant_id}/privacy-notices"
-        ).status_code == 200
+        ).status_code == 503
         blocked = client.post(
             "/api/v1/platform/tenants", headers=headers,
             json={"name": "No DNS", "slug": "no-dns"},

@@ -204,3 +204,49 @@ def test_registration_evidence_roles_and_rls_are_narrow(pg: Harness) -> None:
     with pytest.raises(ProgrammingError):
         with pg.control.connect() as db:
             db.execute(text("SELECT * FROM registration_consents"))
+
+
+def test_registration_works_without_notice_or_fabricated_consent(pg: Harness) -> None:
+    tenant, host, _session, event_id, version = published(pg)
+    service = RegistrationService(
+        pg.runtime, PermitLimiter(), issuance_ready=True, privacy_notices_enabled=False
+    )
+    event = service.public_event(host, "register")
+    assert event["available"] is True and event["privacy_notice"] is None
+    service.register(
+        host,
+        "register",
+        "synthetic-peer",
+        full_name="Demo Attendee",
+        email="no-notice@example.test",
+        phone="+2348012345699",
+        custom_answers={"meal": "Vegan"},
+        form_version=version,
+        notice_version=None,
+        notice_acknowledged=False,
+    )
+    with pg.owner.connect() as db:
+        assert (
+            db.scalar(
+                text("SELECT count(*) FROM registrations WHERE event_id=:event"),
+                {"event": event_id},
+            )
+            == 1
+        )
+        assert (
+            db.scalar(
+                text("SELECT count(*) FROM registration_consents WHERE event_id=:event"),
+                {"event": event_id},
+            )
+            == 0
+        )
+        assert (
+            db.scalar(
+                text(
+                    "SELECT count(*) FROM job_records "
+                    "WHERE event_id=:event AND job_type='ticket.issue'"
+                ),
+                {"event": event_id},
+            )
+            == 1
+        )

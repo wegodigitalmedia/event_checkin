@@ -267,7 +267,10 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
         )
     if app.state.auth_service is not None:
         app.state.event_operations_service = EventOperationsService(
-            database_engine, app.state.auth_service, ticket_keys
+            database_engine,
+            app.state.auth_service,
+            ticket_keys,
+            privacy_notices_enabled=settings.privacy_notices_enabled,
         )
     limiter = (
         RedisRegistrationLimiter(
@@ -280,6 +283,7 @@ def create_app(settings: Settings | None = None, engine: Engine | None = None) -
     app.state.registration_service = RegistrationService(
         database_engine,
         limiter,
+        privacy_notices_enabled=settings.privacy_notices_enabled,
         issuance_ready=(
             ticket_keys is not None
             and not isinstance(ticket_transport, DisabledTicketTransport)

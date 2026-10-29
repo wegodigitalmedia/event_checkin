@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     identity_database_url: SecretStr | None = None
     auth_encryption_key: SecretStr | None = None
     auth_key_id: str = "v1"
+    privacy_notices_enabled: bool = False
     password_screening_mode: Literal["offline", "hibp"] = "offline"
     compromised_password_corpus: str | None = None
     compromised_password_sha256: str | None = None

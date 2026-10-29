@@ -23,8 +23,8 @@ class RegistrationBody(BaseModel):
     phone: str = Field(min_length=3, max_length=40)
     custom_answers: dict[str, object] = Field(default_factory=dict)
     form_version: int = Field(ge=1)
-    notice_version: int = Field(ge=1)
-    notice_acknowledged: bool
+    notice_version: int | None = Field(default=None, ge=1)
+    notice_acknowledged: bool = False
     marketing_opt_in: bool = False
 
 

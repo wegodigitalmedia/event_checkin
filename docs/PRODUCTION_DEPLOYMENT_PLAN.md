@@ -158,3 +158,27 @@ imports. QR issuance/delivery additionally requires ticket signing configuration
 on the API and worker, enabled issuance, Brevo delivery configuration, and provider
 IP authorization. In import-only mode, issue and send tickets explicitly after
 import completes; successful import does not automatically send QR tickets.
+
+### Privacy notice workflow deferred (2026-10-29)
+
+By operator request, Platform Console privacy notices now show Coming soon.
+Organization creation/details no longer instruct administrators to create notices.
+`PRIVACY_NOTICES_ENABLED` defaults to false in application settings; leave it unset
+or false on the API and every Celery worker. Explicitly setting true retains the
+legacy prerequisite checks for internal regression/recovery use; the public-facing
+notice-management UI remains unavailable in this release.
+
+When disabled, authenticated authorized participant imports and public registration
+no longer require an active notice, notice version, or acknowledgment. Event mode,
+publication, registration windows, form validation, issuance readiness, rate limits,
+import authorization confirmation, tenant isolation, RLS, MFA, and role checks
+remain in place. New no-notice records create no registration_consents row rather
+than inventing approval, lawful basis, or consent evidence. Existing notice and
+consent history remains intact, including evidence for already queued imports that
+still reference an available notice. Marketing opt-in is not offered without a
+notice. Notice-management endpoints return 503 COMING_SOON while disabled.
+
+Deploy the same commit to API, workers, and Vercel before using this change. No
+migration, production SQL, data deletion, or new secret is required. This change
+removes an application prerequisite; it does not establish an organization's legal
+basis or represent a participant's consent.

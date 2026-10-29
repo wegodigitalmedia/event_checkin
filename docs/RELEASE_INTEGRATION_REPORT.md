@@ -402,3 +402,18 @@ organizer and gate dashboards, including CSRF header, correct endpoint, browser
 bounds, and failure retry behavior. ESLint, TypeScript and production Vite build
 passed. All browser requests used local synthetic fixtures; no production
 sessions were revoked during testing.
+
+### Privacy workflow deferral (2026-10-29)
+
+Operator approved replacing privacy administration with Coming soon and removing
+notice prerequisites from participant import and public registration. UI setup
+links removed; existing audit/notice/consent data preserved. No fabricated consent
+is stored for notice-free registrations. API and worker share the disabled-by-default
+PRIVACY_NOTICES_ENABLED setting. No revisions or RLS policies changed.
+
+Validation: 21 backend tests passed (real PostgreSQL registration/import,
+notice-history and RLS checks, platform API feature disablement, shared onboarding
+and application startup). Six focused Playwright tests passed, including
+notice-free public form submission and no notice-management requests from the
+Coming soon page. Ruff, mypy, ESLint, TypeScript, and production Vite build passed.
+All test data was local/synthetic. No production data was accessed or modified.

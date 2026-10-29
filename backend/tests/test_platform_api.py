@@ -136,7 +136,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app.state.platform_auth = FakeAuth()
     app.state.platform_control_engine = FakeDomains.control_engine
     app.state.domain_service = None
-    app.state.settings = SimpleNamespace(app_env=Environment.TEST)
+    app.state.settings = SimpleNamespace(app_env=Environment.TEST, privacy_notices_enabled=True)
 
     @app.middleware("http")
     async def trusted_origin(
@@ -244,7 +244,8 @@ def test_privacy_routes_enforce_csrf_validation_and_typed_serialization(
 def test_dns_provisioning_stays_disabled_without_a_fallback_zone(client: TestClient) -> None:
     token = authorize(client)
     response = client.post(
-        "/api/v1/platform/tenants", json={"name": "Shared organization", "slug": "shared"},
+        "/api/v1/platform/tenants",
+        json={"name": "Shared organization", "slug": "shared"},
         headers={"x-csrf-token": token, "origin": "https://platform.example.test"},
     )
     assert response.status_code == 503
@@ -257,3 +258,11 @@ def test_shared_metadata_requires_a_configured_platform_connection(client: TestC
     response = client.get("/api/v1/platform/organizations")
     assert response.status_code == 503
     assert response.json()["detail"]["code"] == "PLATFORM_UNAVAILABLE"
+
+
+def test_privacy_endpoints_are_disabled_when_feature_is_unavailable(client: TestClient) -> None:
+    client.app.state.settings.privacy_notices_enabled = False
+    authorize(client)
+    response = client.get(f"/api/v1/platform/organizations/{TENANT}/privacy-notices")
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "COMING_SOON"

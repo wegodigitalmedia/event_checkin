@@ -141,7 +141,7 @@ test('platform creation takes only organization and organizer details', async ({
   await expect(page.getByText('Provider acceptance does not prove inbox delivery.')).toBeVisible();
 });
 
-test('platform organization directory searches, shows details, and opens selected privacy notices', async ({ page }) => {
+test('platform organization directory searches and shows details without notice setup links', async ({ page }) => {
   const organization = 'c1526557-cdf0-49b8-89a0-3516ab47ab41';
   const item = { id: organization, name: 'Summit Operations', status: 'active', created_at: '2026-10-27T09:00:00Z', primary_organizer: 'organizer@example.test', invitation_delivery_status: 'accepted_by_transport' };
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -164,15 +164,7 @@ test('platform organization directory searches, shows details, and opens selecte
   await page.getByRole('button', { name: 'Copy UUID' }).click();
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(organization);
-  await page.getByRole('link', { name: 'Manage privacy notices' }).click();
-  await expect(page).toHaveURL(new RegExp(`#privacy\\?organization=${organization}$`));
-  await expect(page.getByRole('heading', { name: item.name })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Organization' })).toHaveValue(organization);
-  await page.getByRole('combobox', { name: 'Organization' }).selectOption('');
-  await page.getByLabel('Find organization').fill('Summit');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByRole('combobox', { name: 'Organization' }).selectOption(organization);
-  await expect(page.getByRole('heading', { name: item.name })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Manage privacy notices' })).toHaveCount(0);
 });
 
 test('platform organization directory reports errors and recovers to an empty state', async ({ page }) => {
@@ -191,43 +183,16 @@ test('platform organization directory reports errors and recovers to an empty st
   await expect(page.getByText('No organizations found')).toBeVisible();
 });
 
-test('platform administrator can draft, record approval, and activate a notice', async ({ page }) => {
-  const organization = 'c1526557-cdf0-49b8-89a0-3516ab47ab41';
-  await page.route('**/api/v1/platform/auth/session', route => route.fulfill({ json: { email: 'admin@example.test' } }));
-  await page.route('**/api/v1/platform/auth/csrf', route => route.fulfill({ json: { csrf_token: 'csrf' } }));
-  await page.route('**/api/v1/platform/organizations?*', route => route.fulfill({ json: { organizations: [], total: 0, limit: 25, offset: 0, has_more: false } }));
-  await page.route(`**/api/v1/platform/organizations/${organization}`, route => route.fulfill({ json: { id: organization, name: 'Summit', status: 'active', created_at: '2026-10-27T09:00:00Z', primary_organizer: null, invitation_delivery_status: null } }));
-  let notices: Array<{ version: number; body: string; lawful_basis: string; test_only: boolean; approved_at: string | null; approval_reference: string | null; active: boolean }> = [];
-  await page.route(`**/api/v1/platform/organizations/${organization}/privacy-notices**`, async route => {
-    const request = route.request();
-    if (request.method() === 'GET') return route.fulfill({ json: { organization_id: organization, organization_name: 'Summit', notices } });
-    const input = request.postDataJSON();
-    if (request.url().endsWith('/approve')) {
-      expect(input).toEqual({ approval_reference: 'approval-2026-01', confirmed: true });
-      notices[0] = { ...notices[0], approved_at: '2026-10-27T10:00:00Z', approval_reference: input.approval_reference };
-    } else if (request.url().endsWith('/activate')) {
-      expect(input).toEqual({ confirmed: true });
-      notices[0] = { ...notices[0], active: true };
-    } else {
-      expect(input).toEqual({ body: 'Synthetic local test notice', lawful_basis: 'test-basis', test_only: true });
-      notices = [{ version: 1, body: input.body, lawful_basis: input.lawful_basis, test_only: input.test_only, approved_at: null, approval_reference: null, active: false }];
-    }
-    return route.fulfill({ status: request.url().endsWith('/privacy-notices') ? 201 : 200, json: notices[0] });
+test('privacy notice page is coming soon and makes no notice API requests', async ({ page }) => {
+  let requests = 0;
+  await page.route('**/api/v1/platform/organizations/**/privacy-notices**', route => {
+    requests++;
+    return route.fulfill({ status: 503, json: {} });
   });
-  await page.goto(`/platform-console.html#privacy?organization=${organization}`);
-  await expect(page.getByRole('combobox', { name: 'Organization' })).toHaveValue(organization);
-  await page.getByLabel('Notice text').fill('Synthetic local test notice');
-  await page.getByLabel('Recorded lawful basis').fill('test-basis');
-  await page.getByRole('checkbox', { name: 'Test-only notice for synthetic local or test data' }).check();
-  await page.getByRole('button', { name: 'Create draft' }).click();
-  await expect(page.getByRole('heading', { name: 'Version 1' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Record approval' })).toBeDisabled();
-  await page.getByLabel('External approval reference for version 1').fill('approval-2026-01');
-  await page.getByRole('checkbox', { name: /required external approval/ }).check();
-  await page.getByRole('button', { name: 'Record approval' }).click();
-  await page.getByRole('checkbox', { name: /Activate this approved version/ }).check();
-  await page.getByRole('button', { name: 'Activate version 1' }).click();
-  await expect(page.getByRole('heading', { name: 'Version 1' }).getByText('Active')).toBeVisible();
+  await page.goto('/platform-console.html#privacy?organization=old-bookmark');
+  await expect(page.getByRole('heading', { name: 'Privacy notices are coming soon' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create draft' })).toHaveCount(0);
+  expect(requests).toBe(0);
 });
 
 test('shared sign-in chooses a server-authorized workspace after password verification', async ({ page }) => {

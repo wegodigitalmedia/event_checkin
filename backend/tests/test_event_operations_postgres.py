@@ -185,10 +185,14 @@ def test_import_requires_active_notice_and_explicit_authorization(pg: Harness) -
         )
 
 
-def test_bulk_import_accepts_email_only_records(pg: Harness) -> None:
+@pytest.mark.parametrize("notices_enabled", [True, False])
+def test_bulk_import_accepts_email_only_records(pg: Harness, notices_enabled: bool) -> None:
     tenant, host, session, event_id, _ = published(pg)
-    seed_notice(pg, tenant)
-    operations = EventOperationsService(pg.runtime, pg.auth)
+    if notices_enabled:
+        seed_notice(pg, tenant)
+    operations = EventOperationsService(
+        pg.runtime, pg.auth, privacy_notices_enabled=notices_enabled
+    )
     preview = operations.preview_import(
         host,
         session,
@@ -214,6 +218,11 @@ def test_bulk_import_accepts_email_only_records(pg: Harness) -> None:
     with authorized_tenant_session(pg.runtime, tenant) as db:
         operations.process_import_job(db, job)
     with pg.owner.connect() as db:
+        count = db.scalar(
+            text("SELECT count(*) FROM registration_consents WHERE event_id=:event"),
+            {"event": event_id},
+        )
+        assert count == (2 if notices_enabled else 0)
         assert (
             db.scalar(
                 text(

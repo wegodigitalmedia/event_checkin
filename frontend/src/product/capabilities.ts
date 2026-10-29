@@ -9,7 +9,7 @@ export type Capability = {
 export const capabilities = {
   platformOrganizations: { mode: 'live', label: 'Live', explanation: 'Shared-host organization creation and organizer invitation use the platform API. Email requires an approved transport.' },
   platformOrganizationDirectory: { mode: 'live', label: 'Live', explanation: 'Organization search, pagination, and details use the MFA-protected platform API.' },
-  platformPrivacy: { mode: 'live', label: 'Live', explanation: 'Organization-scoped notice drafting, approval, history, and activation use the audited platform API.' },
+  platformPrivacy: { mode: 'unavailable', label: 'Coming soon', explanation: 'Privacy notice management is currently unavailable.' },
   platformOverview: { mode: 'unavailable', label: 'Limited data', explanation: 'Platform-wide aggregate APIs are planned for M6. The console shows only live readiness currently returned by the service.' },
   platformOperations: { mode: 'unavailable', label: 'Limited data', explanation: 'Queue, delivery, incident, and provider monitoring require authoritative telemetry APIs planned for M6.' },
   subscriptions: { mode: 'unavailable', label: 'Not connected', explanation: 'Billing terms and M2-02 APIs are not implemented.' },

@@ -159,6 +159,10 @@ def notice_failure(exc: Exception) -> HTTPException:
 
 
 def notice_service(request: Request, control: Engine) -> PrivacyNotices:
+    if not request.app.state.settings.privacy_notices_enabled:
+        raise HTTPException(
+            503, detail={"code": "COMING_SOON", "message": "Privacy notices are coming soon"}
+        )
     return PrivacyNotices(control, request.app.state.settings.app_env)
 
 
@@ -284,9 +288,7 @@ def get_organization(
     tenant_id: UUID, request: Request, auth: Auth, control: Control
 ) -> OrganizationResponse:
     try:
-        organization = PlatformOrganizations(control).get(
-            actor(request, auth), tenant_id
-        )
+        organization = PlatformOrganizations(control).get(actor(request, auth), tenant_id)
     except (AuthDenied, DomainDenied) as exc:
         raise notice_failure(exc) from exc
     if organization is None:

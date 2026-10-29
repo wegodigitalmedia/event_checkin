@@ -45,7 +45,7 @@ function Organizations() {
         {session && <p className="control-note">Authorized as {session.email} · {(session.permission || 'tenant.provision').replace('.', ' ')}</p>}
         {error && <Status tone="danger" title="Organization action failed" instruction={error} announce="assertive" />}
       </section>
-      <aside><SectionHeader title="After provisioning" description="Complete the organization's release controls." /><p>Review and activate an approved privacy notice before importing attendees or opening public registration.</p>{created && <ButtonLink href={`#privacy?organization=${encodeURIComponent(created.organization_id)}`} secondary>Set up privacy notice</ButtonLink>}</aside>
+      <aside><SectionHeader title="After provisioning" description="Organizer account setup" /><p>The organizer can accept their invitation, complete authenticator setup, and configure their event.</p></aside>
     </div></>;
 }
 createRoot(document.getElementById('root')!).render(<StrictMode><PlatformConsole provisioning={<Organizations/>}/></StrictMode>);

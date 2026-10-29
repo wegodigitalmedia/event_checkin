@@ -131,11 +131,16 @@ def _notice(db: object, tenant: UUID) -> dict[str, object] | None:
 
 class RegistrationService:
     def __init__(
-        self, engine: Engine, rate_limiter: RegistrationRateLimiter, issuance_ready: bool = False
+        self,
+        engine: Engine,
+        rate_limiter: RegistrationRateLimiter,
+        issuance_ready: bool = False,
+        privacy_notices_enabled: bool = True,
     ):
         self.engine = engine
         self.rate_limiter = rate_limiter
         self.issuance_ready = issuance_ready
+        self.privacy_notices_enabled = privacy_notices_enabled
 
     def public_event(
         self, hostname: str, slug: str, now: datetime | None = None
@@ -154,7 +159,7 @@ class RegistrationService:
                         "Online registration is unavailable for this event"
                     )
                 instant = now or datetime.now(UTC)
-                notice = _notice(db, event.tenant_id)
+                notice = _notice(db, event.tenant_id) if self.privacy_notices_enabled else None
                 form = db.scalar(
                     select(EventFormVersion).where(
                         EventFormVersion.tenant_id == event.tenant_id,
@@ -182,7 +187,9 @@ class RegistrationService:
                     "registration_closes_at": event.registration_closes_at.isoformat()
                     if event.registration_closes_at
                     else None,
-                    "available": open_now and notice is not None and self.issuance_ready,
+                    "available": open_now
+                    and (notice is not None or not self.privacy_notices_enabled)
+                    and self.issuance_ready,
                     "form_schema": form.schema,
                     "form_version": form.version,
                     "privacy_notice": {
@@ -206,7 +213,7 @@ class RegistrationService:
         phone: str,
         custom_answers: dict[str, object],
         form_version: int,
-        notice_version: int,
+        notice_version: int | None,
         notice_acknowledged: bool,
         marketing_opt_in: bool = False,
     ) -> None:
@@ -217,7 +224,9 @@ class RegistrationService:
         name = normalize_name(full_name)
         mailbox = normalize_email(email)
         mobile = normalize_phone(phone)
-        if not notice_acknowledged or not isinstance(marketing_opt_in, bool):
+        if (self.privacy_notices_enabled and not notice_acknowledged) or not isinstance(
+            marketing_opt_in, bool
+        ):
             raise RegistrationInvalid("Acknowledge the privacy notice to continue")
         try:
             # Resolve only the rate-limit scope first. Do not hold a database
@@ -256,10 +265,10 @@ class RegistrationService:
                     or not event.registration_opens_at <= now < event.registration_closes_at
                 ):
                     raise RegistrationUnavailable("Registration is closed")
-                notice = _notice(db, event.tenant_id)
-                if notice is None:
+                notice = _notice(db, event.tenant_id) if self.privacy_notices_enabled else None
+                if self.privacy_notices_enabled and notice is None:
                     raise RegistrationUnavailable("Registration is unavailable")
-                if notice["version"] != notice_version:
+                if notice is not None and notice["version"] != notice_version:
                     raise RegistrationInvalid("Privacy notice changed. Refresh and review it")
                 form = db.scalar(
                     select(EventFormVersion).where(
@@ -289,23 +298,24 @@ class RegistrationService:
                     )
                 )
                 db.flush()
-                db.execute(
-                    text("""INSERT INTO registration_consents
-                      (id,tenant_id,event_id,registration_id,notice_version,notice_digest,
-                       lawful_basis,acknowledged_at,marketing_opt_in,source)
-                      VALUES (:id,:tenant,:event,:registration,:version,:digest,
-                              :basis,clock_timestamp(),:marketing,'self')"""),
-                    {
-                        "id": uuid4(),
-                        "tenant": event.tenant_id,
-                        "event": event.id,
-                        "registration": registration_id,
-                        "version": notice_version,
-                        "digest": notice["sha256"],
-                        "basis": notice["lawful_basis"],
-                        "marketing": marketing_opt_in,
-                    },
-                )
+                if notice is not None:
+                    db.execute(
+                        text("""INSERT INTO registration_consents
+                          (id,tenant_id,event_id,registration_id,notice_version,notice_digest,
+                           lawful_basis,acknowledged_at,marketing_opt_in,source)
+                          VALUES (:id,:tenant,:event,:registration,:version,:digest,
+                                  :basis,clock_timestamp(),:marketing,'self')"""),
+                        {
+                            "id": uuid4(),
+                            "tenant": event.tenant_id,
+                            "event": event.id,
+                            "registration": registration_id,
+                            "version": notice_version,
+                            "digest": notice["sha256"],
+                            "basis": notice["lawful_basis"],
+                            "marketing": marketing_opt_in,
+                        },
+                    )
                 enqueue_job(
                     db,
                     tenant_id=event.tenant_id,
